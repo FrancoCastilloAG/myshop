@@ -1,5 +1,11 @@
 "use client"
-export const CartContext = createContext<CartContextType | undefined>(undefined);
+export const CartContext = createContext<CartContextType>({
+  cart: [],
+  addToCart: () => {},
+  removeFromCart: () => {},
+  removeQuantity: () => {},
+  clearCart: () => {},
+});
 import { createContext, useContext, useState, useEffect } from "react";
 
 export interface CartItem {

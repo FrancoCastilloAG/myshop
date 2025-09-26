@@ -3,8 +3,8 @@ import React from "react";
 import { useParams } from "next/navigation";
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { Card, CardBody, CardFooter, Button, Select, SelectItem, Input } from "@heroui/react";
-import { clothingList } from "../../../productsData";
-import { useCart } from "../../../CartContext";
+import { clothingList } from "@/productsData";
+import { useCart } from "@/CartContext";
 
 	export default function ProductDetail() {
 		const params = useParams();
@@ -72,7 +72,7 @@ import { useCart } from "../../../CartContext";
 									value={String(quantity)}
 									onChange={e => setQuantity(Number(e.target.value))}
 									min={1}
-									max={selectedSize ? product.sizes[selectedSize as keyof typeof product.sizes] : undefined}
+									max={selectedSize ? product.sizes[selectedSize as keyof typeof product.sizes] : 1}
 									className="mb-4 glass"
 									fullWidth
 								/>
