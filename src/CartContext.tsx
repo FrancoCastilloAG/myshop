@@ -1,36 +1,76 @@
 "use client"
-import { createContext, useContext, useState } from "react";
+export const CartContext = createContext<CartContextType | undefined>(undefined);
+import { createContext, useContext, useState, useEffect } from "react";
 
 export interface CartItem {
   name: string;
   sizes: Record<string, number>;
   price: string;
   img: string;
+  selectedSize: string;
+  quantity: number;
 }
 
 interface CartContextType {
   cart: CartItem[];
   addToCart: (product: CartItem) => void;
-  removeFromCart: (name: string) => void;
+  removeFromCart: (name: string, selectedSize: string) => void;
+  removeQuantity: (name: string, selectedSize: string, qty: number) => void;
+  clearCart: () => void;
 }
 
-export const CartContext = createContext<CartContextType | undefined>(undefined);
 
-import { ReactNode } from "react";
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("cart");
+      return stored ? JSON.parse(stored) : [];
+    }
+    return [];
+  });
 
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Persist cart in localStorage
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [cart]);
 
   const addToCart = (product: CartItem) => {
-    setCart((prev) => [...prev, product]);
+    setCart((prev) => {
+      const idx = prev.findIndex(
+        (item) => item.name === product.name && item.selectedSize === product.selectedSize
+      );
+      if (idx > -1) {
+        const updated = [...prev];
+        updated[idx].quantity += product.quantity;
+        return updated;
+      }
+      return [...prev, product];
+    });
   };
 
-  const removeFromCart = (name: string) => {
-    setCart((prev) => prev.filter((item) => item.name !== name));
+  const removeFromCart = (name: string, selectedSize: string) => {
+    setCart((prev) => prev.filter((item) => !(item.name === name && item.selectedSize === selectedSize)));
   };
+
+  const removeQuantity = (name: string, selectedSize: string, qty: number) => {
+    setCart((prev) => {
+      return prev
+        .map((item) => {
+          if (item.name === name && item.selectedSize === selectedSize) {
+            const newQty = item.quantity - qty;
+            if (newQty > 0) return { ...item, quantity: newQty };
+            return null;
+          }
+          return item;
+        })
+        .filter(Boolean) as CartItem[];
+    });
+  };
+
+  const clearCart = () => setCart([]);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, removeQuantity, clearCart }}>
       {children}
     </CartContext.Provider>
   );

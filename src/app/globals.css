@@ -3,3 +3,37 @@
 /* Note: You may need to change the path to fit your project structure */
 @source '../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 @custom-variant dark (&:is(.dark *));
+
+
+body {
+	min-height: 100vh;
+	background: linear-gradient(135deg, #ffffff 0%, #f1f5fb 40%, #e3e6ee 100%);
+	color: #111;
+	padding: 0.75rem 0.75rem 0.75rem 0.75rem;
+	box-sizing: border-box;
+}
+
+* {
+	color: #111 !important;
+}
+
+.glass {
+	background: rgba(255,255,255,0.08);
+	border-radius: 18px;
+	box-shadow: 0 4px 32px 0 rgba(0,0,0,0.18);
+	backdrop-filter: blur(16px) saturate(180%);
+	border: 1px solid rgba(255,255,255,0.18);
+}
+
+.btn-glass {
+	background: rgba(33,150,243,0.25);
+	color: #fff;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px 0 rgba(33,150,243,0.12);
+	backdrop-filter: blur(8px) saturate(180%);
+	border: 1px solid rgba(33,150,243,0.18);
+	transition: background 0.2s;
+}
+.btn-glass:hover {
+	background: rgba(33,150,243,0.45);
+}
