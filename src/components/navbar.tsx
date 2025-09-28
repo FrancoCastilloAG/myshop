@@ -5,7 +5,7 @@ import type { User } from "firebase/auth";
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import GoogleIcon from '@mui/icons-material/Google';
 import { IconButton, Badge, Drawer, List, ListItem, ListItemText, Modal, Box, TextField, Button as MuiButton } from "@mui/material";
-import { useCart } from "@/CartContext";
+import { useCart } from "../CartContext";
 import {
   Navbar,
   NavbarBrand,
@@ -102,9 +102,7 @@ export default function navbar() {
       setUser(result.user);
     } catch (err) {
       let message = "Error de autenticación";
-      if (err && typeof err === "object" && err !== null && "message" in err) {
-        message = String((err as { message?: unknown }).message);
-      }
+      if (err && typeof err === "object" && "message" in err) message = (err as any).message;
       setLoginError(message);
     }
   };

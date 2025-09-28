@@ -1,7 +1,7 @@
 "use client"
-import { Card, CardBody, CardFooter, Image, Button } from "@heroui/react";
+import { Card, CardBody, CardFooter, Image } from "@heroui/react";
 import Link from "next/link";
-import { clothingList } from "@/productsData";
+import { clothingList } from "./../productsData";
 
 export default function Products() {
   // Usar la lista centralizada de productos

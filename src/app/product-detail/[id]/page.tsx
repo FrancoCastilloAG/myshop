@@ -2,9 +2,9 @@
 import React from "react";
 import { useParams } from "next/navigation";
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import { Card, CardBody, CardFooter, Button, Select, SelectItem, Input } from "@heroui/react";
-import { clothingList } from "@/productsData";
-import { useCart } from "@/CartContext";
+import { Card, CardBody, Button, Select, SelectItem, Input } from "@heroui/react";
+import { useCart } from "../../../CartContext";
+import { clothingList } from "../../../productsData";
 
 	export default function ProductDetail() {
 		const params = useParams();
