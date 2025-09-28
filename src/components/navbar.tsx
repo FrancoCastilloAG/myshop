@@ -55,7 +55,7 @@ export default function navbar() {
     setMpError("");
     setMpLink("");
     if (!user || !cart.length) return;
-    const res = await fetch('/api/mercadopago', {
+  const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
