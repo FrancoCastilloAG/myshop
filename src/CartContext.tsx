@@ -11,7 +11,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 export interface CartItem {
   name: string;
   sizes: Record<string, number>;
-  price: string;
+  price: number;
   img: string;
   selectedSize: string;
   quantity: number;

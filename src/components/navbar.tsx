@@ -2,7 +2,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import type { User } from "firebase/auth";
+import { db } from "../firebaseconfig";
+import { ref as dbRef, get as dbGet } from "firebase/database";
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { createUserIfNotExists } from "../firebaseconfig";
 import GoogleIcon from '@mui/icons-material/Google';
 import { IconButton, Badge, Drawer, List, ListItem, ListItemText, Modal, Box, TextField, Button as MuiButton } from "@mui/material";
 import { useCart } from "../CartContext";
@@ -17,6 +20,7 @@ import {
   Link,
   Button,
 } from "@heroui/react";
+import { fetchUserRole, pagarConMercadoPago } from "./navbarUtils";
 
 export const AcmeLogo = () => {
   return (
@@ -51,30 +55,9 @@ export default function navbar() {
   }, []);
   const [mpError, setMpError] = useState("");
   const [mpLink, setMpLink] = useState("");
-  const pagarConMercadoPago = async () => {
-    setMpError("");
-    setMpLink("");
-    if (!user || !cart.length) return;
-  const res = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        items: cart.map(item => ({
-          title: item.name,
-          quantity: item.quantity,
-          currency_id: 'CLP',
-          unit_price: parseInt(item.price.replace(/[^\d]/g, ''))
-        })),
-        userEmail: user.email
-      })
-    });
-    const data = await res.json();
-    if (data.init_point) {
-      setMpLink(data.init_point);
-      window.location.href = data.init_point;
-    } else {
-      setMpError(data.error || JSON.stringify(data));
-    }
+  // Modularizado
+  const handlePagarConMercadoPago = async () => {
+    await pagarConMercadoPago(cart, user, setMpError, setMpLink);
   };
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuItems = [
@@ -90,6 +73,8 @@ export default function navbar() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoginError("");
@@ -111,8 +96,9 @@ export default function navbar() {
     (async () => {
       const { auth } = await import("../firebaseconfig");
       const { onAuthStateChanged } = await import("firebase/auth");
-      onAuthStateChanged(auth, (firebaseUser) => {
+      onAuthStateChanged(auth, async (firebaseUser) => {
         setUser(firebaseUser);
+        setUserRole(await fetchUserRole(firebaseUser));
       });
     })();
   }, []);
@@ -146,11 +132,18 @@ export default function navbar() {
               </Link>
             </NavbarItem>
           ))}
+          {userRole === 'admin' && (
+            <NavbarItem>
+              <Link color="primary" href="/admin/manage-products" size="lg">
+                Admin Productos
+              </Link>
+            </NavbarItem>
+          )}
         </NavbarContent>
         <NavbarContent justify="end">
           {user ? (
             <NavbarItem>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); window.location.href = '/perfil'; }}>
                 <AccountCircleIcon style={{ width: 32, height: 32 }} />
                 <span style={{ fontWeight: 500 }}>{user.displayName || user.email}</span>
               </div>
@@ -185,55 +178,70 @@ export default function navbar() {
               <p>El carrito está vacío</p>
             ) : (
               <>
-                <List>
-                  {cart.map((item, idx) => (
-                    <ListItem key={idx}>
-                      <ListItemText
-                        primary={item.name}
-                        secondary={`Talla: ${item.selectedSize} | Cantidad: ${item.quantity} | Precio: ${item.price}`}
-                      />
-                        <MuiButton
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          style={{ marginLeft: 8 }}
-                          onClick={() => removeQuantity(item.name, item.selectedSize, 1)}
-                          disabled={item.quantity <= 1}
-                        >
-                          -1
-                        </MuiButton>
-                        <MuiButton
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          style={{ marginLeft: 4 }}
-                          onClick={() => removeFromCart(item.name, item.selectedSize)}
-                        >
-                          Quitar
-                        </MuiButton>
-                    </ListItem>
-                  ))}
-                </List>
+                <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 12 }}>
+                  {cart.map((item, idx) => {
+                    const subtotal = item.price * item.quantity;
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(240,240,255,0.7)', borderRadius: 10, padding: 8, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.08)' }}>
+                        <img src={item.img} alt={item.name} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600 }}>{item.name}</div>
+                          <div style={{ fontSize: 13, color: '#555' }}>Talla: <b>{item.selectedSize}</b></div>
+                          <div style={{ fontSize: 13, color: '#555' }}>Precio: <b>${item.price.toLocaleString()}</b></div>
+                          <div style={{ fontSize: 13, color: '#555' }}>Cantidad: <b>{item.quantity}</b></div>
+                          <div style={{ fontSize: 13, color: '#555' }}>Subtotal: <b>${subtotal.toLocaleString()}</b></div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <MuiButton
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            onClick={() => removeQuantity(item.name, item.selectedSize, 1)}
+                            disabled={item.quantity <= 1}
+                          >
+                            -1
+                          </MuiButton>
+                          <MuiButton
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={() => removeFromCart(item.name, item.selectedSize)}
+                          >
+                            Quitar
+                          </MuiButton>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 16 }}>
+                    <span>Total:</span>
+                    <span>
+                      ${cart.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
                 <MuiButton
                   variant="contained"
                   color="success"
-                  onClick={pagarConMercadoPago}
+                  onClick={handlePagarConMercadoPago}
                   disabled={!user || !cart.length}
                   fullWidth
-                  style={{ marginTop: 16, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
+                  style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
                 >
                   Pagar con Mercado Pago
                 </MuiButton>
-                  <MuiButton
-                    variant="contained"
-                    color="error"
-                    onClick={clearCart}
-                    disabled={cart.length === 0}
-                    fullWidth
-                    style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(244,67,54,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(244,67,54,0.18)', boxShadow: '0 2px 8px 0 rgba(244,67,54,0.12)' }}
-                  >
-                    Vaciar carrito
-                  </MuiButton>
+                <MuiButton
+                  variant="contained"
+                  color="error"
+                  onClick={clearCart}
+                  disabled={cart.length === 0}
+                  fullWidth
+                  style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(244,67,54,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(244,67,54,0.18)', boxShadow: '0 2px 8px 0 rgba(244,67,54,0.12)' }}
+                >
+                  Vaciar carrito
+                </MuiButton>
                 {mpError && (
                   <div style={{ color: 'red', fontSize: 12, marginTop: 4 }}>Error: {mpError}</div>
                 )}
@@ -266,7 +274,13 @@ export default function navbar() {
         <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 350, p: 4, borderRadius: 3, textAlign: 'center', backdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.08)', boxShadow: '0 4px 32px 0 rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.18)' }}>
           <h3>Accede con Google</h3>
           {loginError && <p style={{ color: 'red' }}>{loginError}</p>}
-          <MuiButton variant="contained" fullWidth startIcon={<GoogleIcon />} style={{backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)'}} onClick={handleGoogleLogin}>
+          <MuiButton 
+            variant="contained" 
+            fullWidth 
+            startIcon={<GoogleIcon />} 
+            style={{backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)'}} 
+            onClick={handleGoogleLogin}
+          >
             Acceder con Google
           </MuiButton>
         </Box>
