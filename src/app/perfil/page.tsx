@@ -3,12 +3,26 @@ import React, { useEffect, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { db } from "../../firebaseconfig";
-import { ref as dbRef, get as dbGet } from "firebase/database";
+import { ref as dbRef, get as dbGet, set as dbSet, update as dbUpdate } from "firebase/database";
+import { CircularProgress } from "@heroui/react";
+import MuiButton from "@mui/material/Button";
+import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function PerfilPage() {
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [address, setAddress] = useState({
+    street: "",
+    number: "",
+    city: "",
+    region: "",
+    country: ""
+  });
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressSaved, setAddressSaved] = useState(false);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,6 +36,13 @@ export default function PerfilPage() {
         const role = snap.exists() ? snap.val() : null;
         setUserRole(role);
         console.log("Perfil UID:", firebaseUser.uid, "Rol:", role);
+
+        // Cargar direcciones (hasta 2)
+        const addressesRef = dbRef(db, `users/${firebaseUser.uid}/addresses`);
+        dbGet(addressesRef).then(snap => {
+          if (snap.exists()) setAddresses(snap.val());
+          else setAddresses([]);
+        });
       } else {
         setUserRole(null);
       }
@@ -41,7 +62,7 @@ export default function PerfilPage() {
       <div><b>Email:</b> {user.email}</div>
       <div><b>Nombre:</b> {user.displayName || '-'}</div>
       <div><b>UID:</b> {user.uid}</div>
-      <div><b>Rol:</b> {userRole ?? <span style={{color:'red'}}>No encontrado</span>}</div>
+      <div><b>Rol:</b> {userRole ?? <span style={{ color: 'red' }}>No encontrado</span>}</div>
       {userRole === 'admin' && (
         <button onClick={() => window.location.href = '/admin'} style={{ marginTop: 16, background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>
           Ir al panel de Admin
@@ -49,6 +70,91 @@ export default function PerfilPage() {
       )}
       <div style={{ margin: '12px 0 4px 0', fontWeight: 500 }}>Resumen de compras:</div>
       <div style={{ fontSize: 13, color: '#888' }}>(Aquí puedes mostrar el historial real)</div>
+      {loading && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 120 }}>
+          <CircularProgress size="lg" color="primary" />
+        </div>
+      )}
+      <div style={{ margin: '18px 0 8px 0', fontWeight: 500 }}>Direcciones de envío:</div>
+      {addresses.map((addr, idx) => (
+        <div key={idx} style={{ background: '#f7f7fa', borderRadius: 8, padding: 10, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            {addr.street}, {addr.number} - {addr.city}, {addr.region}, {addr.country}
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <MuiButton size="small" variant="outlined" color="error" onClick={async () => {
+              const newAddresses = addresses.filter((_, i) => i !== idx);
+              await dbSet(dbRef(db, `users/${user.uid}/addresses`), newAddresses);
+              setAddresses(newAddresses);
+              if (selectedAddressIdx === idx) setSelectedAddressIdx(0);
+            }}>
+              <DeleteIcon fontSize="small" />
+            </MuiButton>
+          </div>
+        </div>
+      ))}
+      {addresses.length < 2 && (
+        <form onSubmit={async e => {
+          e.preventDefault();
+          setAddressLoading(true);
+          const newAddresses = [...addresses, address];
+          await dbSet(dbRef(db, `users/${user.uid}/addresses`), newAddresses);
+          setAddresses(newAddresses);
+          setAddress({ street: "", number: "", city: "", region: "", country: "" });
+          setAddressLoading(false);
+          setAddressSaved(true);
+          setTimeout(() => setAddressSaved(false), 2000);
+        }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Calle"
+              value={address.street}
+              onChange={e => setAddress(a => ({ ...a, street: e.target.value }))}
+              required
+              style={{ flex: 2, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+            />
+            <input
+              type="text"
+              placeholder="Número"
+              value={address.number}
+              onChange={e => setAddress(a => ({ ...a, number: e.target.value }))}
+              required
+              style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <input
+              type="text"
+              placeholder="Ciudad"
+              value={address.city}
+              onChange={e => setAddress(a => ({ ...a, city: e.target.value }))}
+              required
+              style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+            />
+            <input
+              type="text"
+              placeholder="Región"
+              value={address.region}
+              onChange={e => setAddress(a => ({ ...a, region: e.target.value }))}
+              required
+              style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+            />
+            <input
+              type="text"
+              placeholder="País"
+              value={address.country}
+              onChange={e => setAddress(a => ({ ...a, country: e.target.value }))}
+              required
+              style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+            />
+          </div>
+          <button type="submit" disabled={addressLoading} style={{ marginTop: 12, background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', width: '100%' }}>
+            {addressLoading ? 'Guardando...' : 'Agregar dirección'}
+          </button>
+          {addressSaved && <div style={{ color: 'green', marginTop: 6 }}>¡Dirección guardada!</div>}
+        </form>
+      )}
       <button onClick={async () => { await signOut(getAuth()); router.replace("/"); }} style={{ marginTop: 16, background: '#e53935', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>
         Cerrar sesión
       </button>

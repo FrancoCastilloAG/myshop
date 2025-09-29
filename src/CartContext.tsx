@@ -42,15 +42,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = (product: CartItem) => {
     setCart((prev) => {
+      // Si el producto tiene imageUrl pero no img, usa imageUrl como img
+      const prodWithImg = {
+        ...product,
+        img: product.img || (product as any).imageUrl || '',
+      };
       const idx = prev.findIndex(
-        (item) => item.name === product.name && item.selectedSize === product.selectedSize
+        (item) => item.name === prodWithImg.name && item.selectedSize === prodWithImg.selectedSize
       );
       if (idx > -1) {
         const updated = [...prev];
-        updated[idx].quantity += product.quantity;
+        updated[idx].quantity += prodWithImg.quantity;
         return updated;
       }
-      return [...prev, product];
+      return [...prev, prodWithImg];
     });
   };
 

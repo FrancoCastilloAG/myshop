@@ -7,7 +7,7 @@ import { ref as dbRef, get as dbGet } from "firebase/database";
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { createUserIfNotExists } from "../firebaseconfig";
 import GoogleIcon from '@mui/icons-material/Google';
-import { IconButton, Badge, Drawer, List, ListItem, ListItemText, Modal, Box, TextField, Button as MuiButton } from "@mui/material";
+import { IconButton, Badge, Drawer, List, ListItem, ListItemText, Modal, Box, TextField, Button as MuiButton, CircularProgress } from "@mui/material";
 import { useCart } from "../CartContext";
 import {
   Navbar,
@@ -55,9 +55,12 @@ export default function navbar() {
   }, []);
   const [mpError, setMpError] = useState("");
   const [mpLink, setMpLink] = useState("");
+  const [mpLoading, setMpLoading] = useState(false);
   // Modularizado
   const handlePagarConMercadoPago = async () => {
+    setMpLoading(true);
     await pagarConMercadoPago(cart, user, setMpError, setMpLink);
+    setMpLoading(false);
   };
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuItems = [
@@ -72,12 +75,18 @@ export default function navbar() {
   const [cartOpen, setCartOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [userAddress, setUserAddress] = useState<any>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [shipping, setShipping] = useState<number | "">("");
+  const [shippingSaved, setShippingSaved] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoginError("");
+    setLoginLoading(true);
     try {
       const { GoogleAuthProvider, signInWithPopup } = await import("firebase/auth");
       const { auth } = await import("../firebaseconfig");
@@ -89,6 +98,8 @@ export default function navbar() {
       let message = "Error de autenticación";
       if (err && typeof err === "object" && "message" in err) message = (err as any).message;
       setLoginError(message);
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -102,6 +113,22 @@ export default function navbar() {
       });
     })();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setAddressLoading(true);
+      dbGet(dbRef(db, `users/${user.uid}/address`)).then(snap => {
+        setUserAddress(snap.exists() ? snap.val() : null);
+        setAddressLoading(false);
+      });
+    } else {
+      setUserAddress(null);
+    }
+  }, [user]);
+
+  function isAddressComplete(addr: any) {
+    return addr && addr.street && addr.number && addr.city && addr.region && addr.country;
+  }
 
   return (
     <>
@@ -132,13 +159,6 @@ export default function navbar() {
               </Link>
             </NavbarItem>
           ))}
-          {userRole === 'admin' && (
-            <NavbarItem>
-              <Link color="primary" href="/admin/manage-products" size="lg">
-                Admin Productos
-              </Link>
-            </NavbarItem>
-          )}
         </NavbarContent>
         <NavbarContent justify="end">
           {user ? (
@@ -172,88 +192,83 @@ export default function navbar() {
           {/* ...existing code... */}
         </NavbarContent>
   <Drawer anchor="right" open={cartOpen} onClose={() => setCartOpen(false)} PaperProps={{ className: 'glass', style: { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(24px) saturate(200%)', borderRadius: 18, border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 8px 32px 0 rgba(0,0,0,0.12)' } }}>
-          <div style={{ width: 300, padding: 16, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h3>Carrito</h3>
-            {cart.length === 0 ? (
-              <p>El carrito está vacío</p>
-            ) : (
-              <>
-                <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 12 }}>
-                  {cart.map((item, idx) => {
-                    const subtotal = item.price * item.quantity;
-                    return (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(240,240,255,0.7)', borderRadius: 10, padding: 8, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.08)' }}>
-                        <img src={item.img} alt={item.name} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600 }}>{item.name}</div>
-                          <div style={{ fontSize: 13, color: '#555' }}>Talla: <b>{item.selectedSize}</b></div>
-                          <div style={{ fontSize: 13, color: '#555' }}>Precio: <b>${item.price.toLocaleString()}</b></div>
-                          <div style={{ fontSize: 13, color: '#555' }}>Cantidad: <b>{item.quantity}</b></div>
-                          <div style={{ fontSize: 13, color: '#555' }}>Subtotal: <b>${subtotal.toLocaleString()}</b></div>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <MuiButton
-                            variant="outlined"
-                            color="primary"
-                            size="small"
-                            onClick={() => removeQuantity(item.name, item.selectedSize, 1)}
-                            disabled={item.quantity <= 1}
-                          >
-                            -1
-                          </MuiButton>
-                          <MuiButton
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            onClick={() => removeFromCart(item.name, item.selectedSize)}
-                          >
-                            Quitar
-                          </MuiButton>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: 8, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 16 }}>
-                    <span>Total:</span>
-                    <span>
-                      ${cart.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}
-                    </span>
+    <div style={{ width: 300, padding: 16, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+      <button
+        onClick={() => setCartOpen(false)}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          background: 'none',
+          border: 'none',
+          fontSize: 22,
+          cursor: 'pointer',
+          color: '#888',
+          zIndex: 2
+        }}
+        aria-label="Cerrar carrito"
+      >
+        ×
+      </button>
+      <h3 style={{ textAlign: 'center' }}>Carrito</h3>
+      {cart.length === 0 ? (
+        <p>El carrito está vacío</p>
+      ) : (
+        <>
+          <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 12 }}>
+            {cart.map((item, idx) => {
+              return (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(240,240,255,0.7)', borderRadius: 10, padding: 8, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.08)' }}>
+                  <img 
+                    src={item.img} 
+                    alt={item.name} 
+                    style={{ 
+                      width: 72, 
+                      height: 72, 
+                      objectFit: 'contain', 
+                      borderRadius: 10, 
+                      background: '#fff', 
+                      boxShadow: '0 2px 8px 0 rgba(0,0,0,0.10)', 
+                      border: 'none', 
+                      padding: 6, 
+                      display: 'block' 
+                    }} 
+                    onError={e => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/1828/1828884.png';
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>{item.name}</div>
+                    <div style={{ fontSize: 13, color: '#555' }}>Talla: <b>{item.selectedSize}</b></div>
+                    <div style={{ fontSize: 13, color: '#555' }}>Cantidad: <b>{item.quantity}</b></div>
                   </div>
                 </div>
-                <MuiButton
-                  variant="contained"
-                  color="success"
-                  onClick={handlePagarConMercadoPago}
-                  disabled={!user || !cart.length}
-                  fullWidth
-                  style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
-                >
-                  Pagar con Mercado Pago
-                </MuiButton>
-                <MuiButton
-                  variant="contained"
-                  color="error"
-                  onClick={clearCart}
-                  disabled={cart.length === 0}
-                  fullWidth
-                  style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(244,67,54,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(244,67,54,0.18)', boxShadow: '0 2px 8px 0 rgba(244,67,54,0.12)' }}
-                >
-                  Vaciar carrito
-                </MuiButton>
-                {mpError && (
-                  <div style={{ color: 'red', fontSize: 12, marginTop: 4 }}>Error: {mpError}</div>
-                )}
-                {mpLink && (
-                  <div style={{ fontSize: 12, marginTop: 4 }}>
-                    <a href={mpLink} target="_blank" rel="noopener noreferrer">Ir a Mercado Pago</a>
-                  </div>
-                )}
-              </>
-            )}
+              );
+            })}
           </div>
-        </Drawer>
+          <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: 8, marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 16 }}>
+              <span>Total productos:</span>
+              <span>
+                ${cart.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
+          <MuiButton
+            variant="contained"
+            color="success"
+            onClick={() => { setCartOpen(false); window.location.href = '/checkout'; }}
+            disabled={!user || !cart.length}
+            fullWidth
+            style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
+          >
+            Ir a checkout
+          </MuiButton>
+        </>
+      )}
+    </div>
+  </Drawer>
   <NavbarMenu className="glass" style={{position: 'fixed', top: '5.5rem', left: navbarLeft ?? 0, width: navbarWidth ?? '100%', zIndex: 100}}>
           {menuItems.map((item, index) => (
             <NavbarMenuItem key={`${item.label}-${index}`} className="glass" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0.5rem 0'}}>
@@ -270,21 +285,30 @@ export default function navbar() {
         </NavbarMenu>
     </Navbar>
   </div>
-      <Modal open={loginOpen} onClose={() => setLoginOpen(false)}>
-        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 350, p: 4, borderRadius: 3, textAlign: 'center', backdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.08)', boxShadow: '0 4px 32px 0 rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.18)' }}>
-          <h3>Accede con Google</h3>
-          {loginError && <p style={{ color: 'red' }}>{loginError}</p>}
-          <MuiButton 
-            variant="contained" 
-            fullWidth 
-            startIcon={<GoogleIcon />} 
-            style={{backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)'}} 
-            onClick={handleGoogleLogin}
-          >
-            Acceder con Google
-          </MuiButton>
-        </Box>
-      </Modal>
+      {/* Loading para login */}
+      {loginOpen && (
+        <Modal open={loginOpen} onClose={() => setLoginOpen(false)}>
+          <Box style={{ padding: 32, background: '#fff', borderRadius: 16, minWidth: 320, minHeight: 180, margin: '10vh auto', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            {loginLoading ? (
+              <CircularProgress size={48} color="primary" />
+            ) : (
+              <>
+                <h3>Accede con Google</h3>
+                {loginError && <p style={{ color: 'red' }}>{loginError}</p>}
+                <MuiButton 
+                  variant="contained" 
+                  fullWidth 
+                  startIcon={<GoogleIcon />} 
+                  style={{backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)'}} 
+                  onClick={handleGoogleLogin}
+                >
+                  Acceder con Google
+                </MuiButton>
+              </>
+            )}
+          </Box>
+        </Modal>
+      )}
     </>
   );
 }
