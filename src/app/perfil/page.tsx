@@ -23,6 +23,8 @@ export default function PerfilPage() {
   const [addressSaved, setAddressSaved] = useState(false);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,16 +37,29 @@ export default function PerfilPage() {
         const snap = await dbGet(userDbRef);
         const role = snap.exists() ? snap.val() : null;
         setUserRole(role);
-        console.log("Perfil UID:", firebaseUser.uid, "Rol:", role);
-
         // Cargar direcciones (hasta 2)
         const addressesRef = dbRef(db, `users/${firebaseUser.uid}/addresses`);
         dbGet(addressesRef).then(snap => {
           if (snap.exists()) setAddresses(snap.val());
           else setAddresses([]);
         });
+        // Cargar pedidos del usuario
+        setOrdersLoading(true);
+        const ordersRef = dbRef(db, `orders/${firebaseUser.uid}`);
+        dbGet(ordersRef).then(snap => {
+          if (snap.exists()) {
+            const data = snap.val();
+            const arr = Object.entries(data).map(([oid, order]: any) => ({ id: oid, ...order }));
+            setOrders(arr.reverse());
+          } else {
+            setOrders([]);
+          }
+          setOrdersLoading(false);
+        });
       } else {
         setUserRole(null);
+        setOrders([]);
+        setOrdersLoading(false);
       }
     });
     return () => unsubscribe();
@@ -69,10 +84,32 @@ export default function PerfilPage() {
         </button>
       )}
       <div style={{ margin: '12px 0 4px 0', fontWeight: 500 }}>Resumen de compras:</div>
-      <div style={{ fontSize: 13, color: '#888' }}>(Aquí puedes mostrar el historial real)</div>
-      {loading && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 120 }}>
+      {ordersLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 80 }}>
           <CircularProgress size="lg" color="primary" />
+        </div>
+      ) : orders.length === 0 ? (
+        <div style={{ fontSize: 13, color: '#888' }}>No tienes compras registradas.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 12 }}>
+          {orders.map(order => (
+            <div key={order.id} style={{ background: '#f7f7fa', borderRadius: 10, padding: 12, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.07)' }}>
+              <div style={{ fontWeight: 600, color: '#1976d2', fontSize: 15 }}>Pedido #{order.id}</div>
+              <div style={{ fontSize: 14 }}>Fecha: {order.createdAt ? new Date(order.createdAt).toLocaleString() : '—'}</div>
+              <div style={{ fontSize: 14 }}>Estado: <b>{order.status || 'Pendiente'}</b></div>
+              <div style={{ fontSize: 14 }}>Total: <b>${order.total?.toLocaleString() || '—'}</b></div>
+              <div style={{ fontSize: 14 }}>Productos:
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                  {order.items?.map((item: any, idx: number) => (
+                    <li key={idx} style={{ marginBottom: 2 }}>
+                      <span style={{ fontWeight: 500 }}>{item.name}</span> x{item.quantity} ({item.selectedSize})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div style={{ fontSize: 13, color: '#555' }}>Dirección: {order.address ? `${order.address.street}, ${order.address.number} - ${order.address.city}, ${order.address.region}, ${order.address.country}` : '—'}</div>
+            </div>
+          ))}
         </div>
       )}
       <div style={{ margin: '18px 0 8px 0', fontWeight: 500 }}>Direcciones de envío:</div>
