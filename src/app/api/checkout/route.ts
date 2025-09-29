@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   const { items, userEmail } = await req.json();
   try {
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -13,9 +14,9 @@ export async function POST(req: NextRequest) {
         items,
         payer: { email: userEmail },
         back_urls: {
-          success: 'https://localhost:3000/success',
-          failure: 'https://localhost:3000/failure',
-          pending: 'https://localhost:3000/pending'
+          success: `${BASE_URL}/success`,
+          failure: `${BASE_URL}/failure`,
+          pending: `${BASE_URL}/pending`
         },
         auto_return: 'approved'
       })
