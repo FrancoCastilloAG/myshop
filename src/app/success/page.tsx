@@ -42,22 +42,18 @@ function SuccessContent() {
         const collectionStatus = searchParams.get("collection_status");
         // Si no hay payment_id, igual intentamos guardar (modo sandbox/local)
 
+
         async function validarYGuardarPedido() {
             let pagoAprobado = false;
             if (paymentId) {
-                // Validar con la API de MercadoPago
+                // Validar con el endpoint backend seguro
                 try {
-                    const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-                        headers: {
-                            Authorization: `Bearer ${process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || process.env.MERCADOPAGO_ACCESS_TOKEN}`
-                        }
-                    });
+                    const res = await fetch(`/api/validate-payment?payment_id=${paymentId}`);
                     const pago = await res.json();
                     if (pago.status === "approved") {
                         pagoAprobado = true;
                     }
                 } catch {
-                    // Si falla la validación, no guardamos
                     setStatusMsg("No se pudo validar el pago. Intenta recargar la página.");
                     return;
                 }
