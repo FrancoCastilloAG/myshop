@@ -56,18 +56,18 @@ export default function CheckoutPage() {
     setMpLoading(true);
     setMpError("");
     try {
+      // Formatea los items para MercadoPago
+      const mpItems = cart.map(item => ({
+        title: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        currency_id: 'CLP',
+      }));
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: [
-            {
-              title: 'Compra en MyShop',
-              quantity: 1,
-              currency_id: 'CLP',
-              unit_price: totalPagar
-            }
-          ],
+          items: mpItems,
           userEmail: user.email,
           shipping: shippingEstimate,
           address: userAddress
@@ -75,6 +75,12 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       if (data.init_point) {
+        // Guarda el resumen de la compra en localStorage para mostrarlo en /success
+        localStorage.setItem("lastOrder", JSON.stringify({
+          items: cart,
+          address: userAddress,
+          total: totalPagar
+        }));
         window.location.href = data.init_point;
       } else {
         setMpError(data.error || JSON.stringify(data));

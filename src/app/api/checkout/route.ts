@@ -13,9 +13,9 @@ export async function POST(req: NextRequest) {
         items,
         payer: { email: userEmail },
         back_urls: {
-          success: 'https://tu-tienda.com/success',
-          failure: 'https://tu-tienda.com/failure',
-          pending: 'https://tu-tienda.com/pending'
+          success: 'https://localhost:3000/success',
+          failure: 'https://localhost:3000/failure',
+          pending: 'https://localhost:3000/pending'
         },
         auto_return: 'approved'
       })
