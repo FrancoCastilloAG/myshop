@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/firebaseconfig";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SuccessPage() {
@@ -22,15 +24,8 @@ function SuccessContent() {
         const paymentId = searchParams.get("payment_id");
         const collectionStatus = searchParams.get("collection_status");
 
-        // Intenta obtener el userId de Firebase Auth (localStorage)
-        const userStr = localStorage.getItem("firebase:authUser:default");
-        let userId: string | null = null;
-        if (userStr) {
-            try {
-                const userObj = JSON.parse(userStr);
-                userId = userObj.uid;
-            } catch { }
-        }
+        let unsubscribe: (() => void) | null = null;
+        let resolved = false;
 
         async function obtenerResumenPedido(): Promise<any | null> {
             // 1. Intenta localStorage (flujo clásico)
@@ -56,8 +51,14 @@ function SuccessContent() {
             return null;
         }
 
-        async function validarYGuardarPedido() {
+        function handleNoAuth() {
+            setStatusMsg("Debes iniciar sesión para guardar tu pedido.");
+            setTimeout(() => router.replace("/login"), 3500);
+        }
+
+        async function validarYGuardarPedido(user: User | null) {
             let pagoAprobado = false;
+            let userId = user?.uid || null;
             let resumenPedido = await obtenerResumenPedido();
             console.log('[SUCCESS] userId:', userId);
             console.log('[SUCCESS] resumenPedido:', resumenPedido);
@@ -111,12 +112,24 @@ function SuccessContent() {
             } else if (!pagoAprobado) {
                 setStatusMsg("El pago no fue aprobado. No se guardó el pedido.");
                 setTimeout(() => router.replace("/"), 3500);
+            } else if (!userId) {
+                handleNoAuth();
             } else {
                 setStatusMsg("¡Pago realizado con éxito!");
                 setTimeout(() => router.replace("/perfil"), 3500);
             }
         }
-        validarYGuardarPedido();
+
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (!resolved) {
+                resolved = true;
+                validarYGuardarPedido(user);
+            }
+        });
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
         // eslint-disable-next-line
     }, []);
 
