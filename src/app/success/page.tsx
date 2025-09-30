@@ -59,6 +59,8 @@ function SuccessContent() {
         async function validarYGuardarPedido() {
             let pagoAprobado = false;
             let resumenPedido = await obtenerResumenPedido();
+            console.log('[SUCCESS] userId:', userId);
+            console.log('[SUCCESS] resumenPedido:', resumenPedido);
             if (!resumenPedido) {
                 setStatusMsg("No se encontró información de la compra.");
                 setTimeout(() => router.replace("/"), 3000);
@@ -73,7 +75,8 @@ function SuccessContent() {
                     if (pago.status === "approved") {
                         pagoAprobado = true;
                     }
-                } catch {
+                } catch (e) {
+                    console.error('[SUCCESS] Error validando pago:', e);
                     setStatusMsg("No se pudo validar el pago. Intenta recargar la página.");
                     return;
                 }
@@ -86,12 +89,14 @@ function SuccessContent() {
             if (userId && resumenPedido && !resumenPedido.savedToDb && pagoAprobado) {
                 setStatusMsg("Guardando tu pedido...");
                 try {
+                    console.log('[SUCCESS] Enviando a /api/pedidos:', { userId, order: resumenPedido });
                     const res = await fetch("/api/pedidos", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ userId, order: resumenPedido })
                     });
                     const data = await res.json();
+                    console.log('[SUCCESS] Respuesta /api/pedidos:', data);
                     if (data.success) {
                         localStorage.setItem("lastOrder", JSON.stringify({ ...resumenPedido, savedToDb: true }));
                         setStatusMsg("¡Pago realizado con éxito!");
@@ -99,7 +104,8 @@ function SuccessContent() {
                     } else {
                         setStatusMsg("No se pudo guardar el pedido. Intenta recargar la página.");
                     }
-                } catch {
+                } catch (e) {
+                    console.error('[SUCCESS] Error guardando pedido:', e);
                     setStatusMsg("No se pudo guardar el pedido. Intenta recargar la página.");
                 }
             } else if (!pagoAprobado) {
