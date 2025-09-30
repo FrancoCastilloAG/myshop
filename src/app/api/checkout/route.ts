@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  const { items, userEmail } = await req.json();
+  const { items, userEmail, shipping, address } = await req.json();
   try {
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const total = items.reduce((acc: number, item: any) => acc + (item.unit_price * item.quantity), 0) + (shipping || 0);
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -18,7 +19,13 @@ export async function POST(req: NextRequest) {
           failure: `${BASE_URL}/failure`,
           pending: `${BASE_URL}/pending`
         },
-        auto_return: 'approved'
+        auto_return: 'approved',
+        metadata: {
+          items,
+          address,
+          shipping,
+          total
+        }
       })
     });
     const data = await response.json();

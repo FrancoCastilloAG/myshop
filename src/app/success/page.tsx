@@ -16,16 +16,11 @@ function SuccessContent() {
     const [order, setOrder] = useState<any>(null);
     const [statusMsg, setStatusMsg] = useState<string>("Validando pago...");
 
+
     useEffect(() => {
-        // Recupera el resumen de la última compra del localStorage
-        const lastOrder = localStorage.getItem("lastOrder");
-        if (!lastOrder) {
-            setStatusMsg("No se encontró información de la compra.");
-            setTimeout(() => router.replace("/"), 3000);
-            return;
-        }
-        const parsedOrder = JSON.parse(lastOrder);
-        setOrder(parsedOrder);
+        // Leer parámetros de MercadoPago
+        const paymentId = searchParams.get("payment_id");
+        const collectionStatus = searchParams.get("collection_status");
 
         // Intenta obtener el userId de Firebase Auth (localStorage)
         const userStr = localStorage.getItem("firebase:authUser:default");
@@ -37,14 +32,39 @@ function SuccessContent() {
             } catch { }
         }
 
-        // Leer parámetros de MercadoPago
-        const paymentId = searchParams.get("payment_id");
-        const collectionStatus = searchParams.get("collection_status");
-        // Si no hay payment_id, igual intentamos guardar (modo sandbox/local)
-
+        async function obtenerResumenPedido(): Promise<any | null> {
+            // 1. Intenta localStorage (flujo clásico)
+            const lastOrder = localStorage.getItem("lastOrder");
+            if (lastOrder) {
+                try {
+                    return JSON.parse(lastOrder);
+                } catch {}
+            }
+            // 2. Si no hay, intenta desde MercadoPago (metadata)
+            if (paymentId) {
+                try {
+                    const res = await fetch(`/api/validate-payment?payment_id=${paymentId}`);
+                    const pago = await res.json();
+                    if (pago.pago && pago.pago.metadata) {
+                        return {
+                            ...pago.pago.metadata,
+                            savedToDb: false // para mantener la lógica
+                        };
+                    }
+                } catch {}
+            }
+            return null;
+        }
 
         async function validarYGuardarPedido() {
             let pagoAprobado = false;
+            let resumenPedido = await obtenerResumenPedido();
+            if (!resumenPedido) {
+                setStatusMsg("No se encontró información de la compra.");
+                setTimeout(() => router.replace("/"), 3000);
+                return;
+            }
+            setOrder(resumenPedido);
             if (paymentId) {
                 // Validar con el endpoint backend seguro
                 try {
@@ -60,21 +80,20 @@ function SuccessContent() {
             } else if (collectionStatus === "approved") {
                 pagoAprobado = true;
             } else {
-                // Si no hay payment_id ni status, asumimos éxito (modo local)
                 pagoAprobado = true;
             }
 
-            if (userId && parsedOrder && !parsedOrder.savedToDb && pagoAprobado) {
+            if (userId && resumenPedido && !resumenPedido.savedToDb && pagoAprobado) {
                 setStatusMsg("Guardando tu pedido...");
                 try {
                     const res = await fetch("/api/pedidos", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId, order: parsedOrder })
+                        body: JSON.stringify({ userId, order: resumenPedido })
                     });
                     const data = await res.json();
                     if (data.success) {
-                        localStorage.setItem("lastOrder", JSON.stringify({ ...parsedOrder, savedToDb: true }));
+                        localStorage.setItem("lastOrder", JSON.stringify({ ...resumenPedido, savedToDb: true }));
                         setStatusMsg("¡Pago realizado con éxito!");
                         setTimeout(() => router.replace("/perfil"), 3500);
                     } else {
@@ -93,7 +112,6 @@ function SuccessContent() {
         }
         validarYGuardarPedido();
         // eslint-disable-next-line
-        //
     }, []);
 
     return (
