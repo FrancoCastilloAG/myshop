@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  const { items, userEmail, shipping, address } = await req.json();
+  const { items, userEmail, shipping, address ,userId} = await req.json();
   try {
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
   const total = items.reduce((acc: number, item: any) => acc + (item.unit_price * item.quantity), 0) + (shipping || 0);
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         items,
         payer: { email: userEmail },
+        external_reference: userId,
         back_urls: {
           success: `${BASE_URL}/success`,
           failure: `${BASE_URL}/failure`,
@@ -21,10 +22,10 @@ export async function POST(req: NextRequest) {
         },
         auto_return: 'approved',
         metadata: {
-          items,
-          address,
-          shipping,
-          total
+          items: JSON.stringify(items),
+          address: JSON.stringify(address),
+          shipping: shipping?.toString(),
+          total: total.toString()
         }
       })
     });
