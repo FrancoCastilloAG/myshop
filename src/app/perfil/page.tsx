@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { listenUserData, UserData } from "../../userUtils";
+import { signOut, getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { db } from "../../firebaseconfig";
 import { ref as dbRef, get as dbGet, set as dbSet, update as dbUpdate } from "firebase/database";
@@ -9,8 +10,7 @@ import MuiButton from "@mui/material/Button";
 import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function PerfilPage() {
-  const [user, setUser] = useState<any>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userData, setUserData] = useState<UserData>({ user: null, uid: null, role: null, address: null });
   const [loading, setLoading] = useState(true);
   const [address, setAddress] = useState({
     street: "",
@@ -28,28 +28,23 @@ export default function PerfilPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsub = listenUserData((data) => {
+      setUserData(data);
       setLoading(false);
-      if (firebaseUser) {
-        const userDbRef = dbRef(db, `users/${firebaseUser.uid}/role`);
-        const snap = await dbGet(userDbRef);
-        const role = snap.exists() ? snap.val() : null;
-        setUserRole(role);
+      if (data.uid) {
         // Cargar direcciones (hasta 2)
-        const addressesRef = dbRef(db, `users/${firebaseUser.uid}/addresses`);
+        const addressesRef = dbRef(db, `users/${data.uid}/addresses`);
         dbGet(addressesRef).then(snap => {
           if (snap.exists()) setAddresses(snap.val());
           else setAddresses([]);
         });
         // Cargar pedidos del usuario
         setOrdersLoading(true);
-        const ordersRef = dbRef(db, `orders/${firebaseUser.uid}`);
+        const ordersRef = dbRef(db, `orders/${data.uid}`);
         dbGet(ordersRef).then(snap => {
           if (snap.exists()) {
-            const data = snap.val();
-            const arr = Object.entries(data).map(([oid, order]: any) => ({ id: oid, ...order }));
+            const dataOrders = snap.val();
+            const arr = Object.entries(dataOrders).map(([oid, order]: any) => ({ id: oid, ...order }));
             setOrders(arr.reverse());
           } else {
             setOrders([]);
@@ -57,16 +52,15 @@ export default function PerfilPage() {
           setOrdersLoading(false);
         });
       } else {
-        setUserRole(null);
         setOrders([]);
         setOrdersLoading(false);
       }
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
   if (loading) return <div>Cargando...</div>;
-  if (!user) {
+  if (!userData.user) {
     router.replace("/");
     return null;
   }
@@ -74,11 +68,11 @@ export default function PerfilPage() {
   return (
     <div style={{ maxWidth: 500, margin: "2rem auto", background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', padding: 24 }}>
       <h2>Perfil de Usuario</h2>
-      <div><b>Email:</b> {user.email}</div>
-      <div><b>Nombre:</b> {user.displayName || '-'}</div>
-      <div><b>UID:</b> {user.uid}</div>
-      <div><b>Rol:</b> {userRole ?? <span style={{ color: 'red' }}>No encontrado</span>}</div>
-      {userRole === 'admin' && (
+  <div><b>Email:</b> {userData.user?.email}</div>
+  <div><b>Nombre:</b> {userData.user?.displayName || '-'}</div>
+  <div><b>UID:</b> {userData.uid}</div>
+  <div><b>Rol:</b> {userData.role ?? <span style={{ color: 'red' }}>No encontrado</span>}</div>
+  {userData.role === 'admin' && (
         <button onClick={() => window.location.href = '/admin'} style={{ marginTop: 16, background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>
           Ir al panel de Admin
         </button>
@@ -121,7 +115,7 @@ export default function PerfilPage() {
           <div style={{ display: 'flex', gap: 4 }}>
             <MuiButton size="small" variant="outlined" color="error" onClick={async () => {
               const newAddresses = addresses.filter((_, i) => i !== idx);
-              await dbSet(dbRef(db, `users/${user.uid}/addresses`), newAddresses);
+              await dbSet(dbRef(db, `users/${userData.uid}/addresses`), newAddresses);
               setAddresses(newAddresses);
               if (selectedAddressIdx === idx) setSelectedAddressIdx(0);
             }}>
@@ -135,7 +129,7 @@ export default function PerfilPage() {
           e.preventDefault();
           setAddressLoading(true);
           const newAddresses = [...addresses, address];
-          await dbSet(dbRef(db, `users/${user.uid}/addresses`), newAddresses);
+          await dbSet(dbRef(db, `users/${userData.uid}/addresses`), newAddresses);
           setAddresses(newAddresses);
           setAddress({ street: "", number: "", city: "", region: "", country: "" });
           setAddressLoading(false);

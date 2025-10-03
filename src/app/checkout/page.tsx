@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "../../CartContext";
-import { db } from "../../firebaseconfig";
-import { ref as dbRef, get as dbGet } from "firebase/database";
+import { getUserData, listenUserData, UserData } from "../../userUtils";
 import { Button as MuiButton, CircularProgress } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -12,8 +11,7 @@ import EditIcon from '@mui/icons-material/Edit';
 
 export default function CheckoutPage() {
   const { cart, clearCart, removeFromCart, removeQuantity } = useCart();
-  const [user, setUser] = useState<any>(null);
-  const [userAddress, setUserAddress] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData>({ user: null, uid: null, role: null, address: null });
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
   const [addressLoading, setAddressLoading] = useState(true);
@@ -24,29 +22,24 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    (async () => {
-      const { getAuth, onAuthStateChanged } = await import("firebase/auth");
-      const auth = getAuth();
-      onAuthStateChanged(auth, async (firebaseUser) => {
-        setUser(firebaseUser);
-        if (firebaseUser) {
-          setAddressLoading(true);
-          const snap = await dbGet(dbRef(db, `users/${firebaseUser.uid}/addresses`));
-          if (snap.exists()) {
-            setAddresses(snap.val());
-            setUserAddress(snap.val()[selectedAddressIdx] || null);
-          } else {
-            setAddresses([]);
-            setUserAddress(null);
-          }
-          setAddressLoading(false);
+    const unsub = listenUserData((data) => {
+      setUserData(data);
+      setAddressLoading(false);
+      if (data.user && data.user.uid) {
+        // Si hay varias direcciones, selecciona la principal o la elegida
+        if (Array.isArray(data.address)) {
+          setAddresses(data.address);
+        } else if (data.address) {
+          setAddresses([data.address]);
         } else {
-          setUserAddress(null);
           setAddresses([]);
         }
-      });
-    })();
-  }, [selectedAddressIdx]);
+      } else {
+        setAddresses([]);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   function isAddressComplete(addr: any) {
     return addr && addr.street && addr.number && addr.city && addr.region && addr.country;
@@ -68,10 +61,10 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: mpItems,
-          userEmail: user.email,
-          userId: user.uid,        // 👈 Esto es clave
+          userEmail: userData.user?.email,
+          userId: userData.uid,
           shipping: shippingEstimate,
-          address: userAddress,
+          address: addresses[selectedAddressIdx] || userData.address,
           total: totalPagar
         }),
       });
@@ -80,7 +73,7 @@ export default function CheckoutPage() {
         // Guarda el resumen de la compra en localStorage para mostrarlo en /success
         localStorage.setItem("lastOrder", JSON.stringify({
           items: cart,
-          address: userAddress,
+          address: addresses[selectedAddressIdx] || userData.address,
           total: totalPagar
         }));
         window.location.href = data.init_point;
@@ -96,13 +89,14 @@ export default function CheckoutPage() {
 
   // Calcular envío estimado automáticamente
   let shippingEstimate = 0;
-  if (userAddress && userAddress.city) {
-    shippingEstimate = userAddress.city.toLowerCase().includes('santiago') ? 3000 : 5000;
+  const selectedAddress = addresses[selectedAddressIdx] || userData.address;
+  if (selectedAddress && selectedAddress.city) {
+    shippingEstimate = selectedAddress.city.toLowerCase().includes('santiago') ? 3000 : 5000;
   }
   const totalProductos = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalPagar = totalProductos + shippingEstimate;
 
-  if (!user) return <div style={{ textAlign: 'center', marginTop: 40 }}>Debes iniciar sesión para continuar.</div>;
+  if (!userData.user) return <div style={{ textAlign: 'center', marginTop: 40 }}>Debes iniciar sesión para continuar.</div>;
   if (cart.length === 0) return <div style={{ textAlign: 'center', marginTop: 40 }}>No hay productos en el carrito.</div>;
 
   return (
@@ -149,9 +143,9 @@ export default function CheckoutPage() {
                 ))}
               </select>
             </div>
-          ) : userAddress ? (
+          ) : selectedAddress ? (
             <div style={{ fontSize: 15, color: '#333', marginTop: 6 }}>
-              {userAddress.street}, {userAddress.number} - {userAddress.city}, {userAddress.region}, {userAddress.country}
+              {selectedAddress.street}, {selectedAddress.number} - {selectedAddress.city}, {selectedAddress.region}, {selectedAddress.country}
             </div>
           ) : (
             <div style={{ fontSize: 15, color: '#999', marginTop: 6 }}>No tienes una dirección de envío guardada.</div>
@@ -175,7 +169,7 @@ export default function CheckoutPage() {
         color="primary"
         size="large"
         onClick={handlePagarConMercadoPago}
-        disabled={mpLoading || !isAddressComplete(userAddress)}
+  disabled={mpLoading || !isAddressComplete(selectedAddress)}
         style={{
           width: '100%',
           padding: 16,

@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useRef, useEffect } from "react";
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import type { User } from "firebase/auth";
+import { listenUserData, UserData } from "../userUtils";
 import { db } from "../firebaseconfig";
 import { ref as dbRef, get as dbGet } from "firebase/database";
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -57,9 +57,11 @@ export default function navbar() {
   const [mpLink, setMpLink] = useState("");
   const [mpLoading, setMpLoading] = useState(false);
   // Modularizado
+  const [userData, setUserData] = useState<UserData>({ user: null, uid: null, role: null, address: null });
+  const { cart } = useCart();
   const handlePagarConMercadoPago = async () => {
     setMpLoading(true);
-    await pagarConMercadoPago(cart, user, setMpError, setMpLink);
+    await pagarConMercadoPago(cart, userData.user, setMpError, setMpLink);
     setMpLoading(false);
   };
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -69,19 +71,13 @@ export default function navbar() {
     { label: "Dashboard", href: "#" },
     { label: "Activity", href: "#" },
   ];
-  const { cart, removeQuantity, removeFromCart, clearCart } = useCart();
   // Suma total de productos en el carrito
-  const cartCount = cart.reduce((acc, item) => acc + (item.quantity || 0), 0);
+  const cartCount = cart.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0);
   const [cartOpen, setCartOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [userAddress, setUserAddress] = useState<any>(null);
-  const [addressLoading, setAddressLoading] = useState(false);
-  const [shipping, setShipping] = useState<number | "">("");
   const [shippingSaved, setShippingSaved] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -93,7 +89,7 @@ export default function navbar() {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       setLoginOpen(false);
-      setUser(result.user);
+      setUserData((prev) => ({ ...prev, user: result.user, uid: result.user.uid }));
     } catch (err) {
       let message = "Error de autenticación";
       if (err && typeof err === "object" && "message" in err) message = (err as any).message;
@@ -102,29 +98,17 @@ export default function navbar() {
       setLoginLoading(false);
     }
   };
-
-  React.useEffect(() => {
+  useEffect(() => {
     (async () => {
       const { auth } = await import("../firebaseconfig");
       const { onAuthStateChanged } = await import("firebase/auth");
       onAuthStateChanged(auth, async (firebaseUser) => {
-        setUser(firebaseUser);
-        setUserRole(await fetchUserRole(firebaseUser));
+  setUserData({ user: firebaseUser, uid: firebaseUser?.uid ?? null, role: await fetchUserRole(firebaseUser), address: null });
       });
     })();
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      setAddressLoading(true);
-      dbGet(dbRef(db, `users/${user.uid}/address`)).then(snap => {
-        setUserAddress(snap.exists() ? snap.val() : null);
-        setAddressLoading(false);
-      });
-    } else {
-      setUserAddress(null);
-    }
-  }, [user]);
+  // Eliminado: useEffect y useState duplicados
 
   function isAddressComplete(addr: any) {
     return addr && addr.street && addr.number && addr.city && addr.region && addr.country;
@@ -132,159 +116,157 @@ export default function navbar() {
 
   return (
     <>
-  <div ref={navbarRef}>
-    <Navbar isBordered isMenuOpen={isMenuOpen} onMenuOpenChange={setIsMenuOpen} className="glass" style={{marginBottom: '2rem'}}>
-        <NavbarContent className="sm:hidden" justify="start">
+      <div ref={navbarRef}>
+        <Navbar isBordered isMenuOpen={isMenuOpen} onMenuOpenChange={setIsMenuOpen} className="glass" style={{marginBottom: '2rem'}}>
           <NavbarMenuToggle aria-label={isMenuOpen ? "Close menu" : "Open menu"} />
-        </NavbarContent>
-        <NavbarContent className="sm:hidden pr-3" justify="center">
-          <NavbarBrand>
-            <AcmeLogo />
-            <p className="font-bold text-inherit">ACME</p>
-          </NavbarBrand>
-        </NavbarContent>
-        <NavbarContent className="hidden sm:flex gap-4" justify="center">
-          <NavbarBrand>
-            <AcmeLogo />
-            <p className="font-bold text-inherit">ACME</p>
-          </NavbarBrand>
-          {menuItems.map((item, index) => (
-            <NavbarItem key={item.label}>
-              <Link
-                color={index === 2 ? "warning" : index === menuItems.length - 1 ? "danger" : "foreground"}
-                href={item.href}
-                size="lg"
-              >
-                {item.label}
-              </Link>
-            </NavbarItem>
-          ))}
-        </NavbarContent>
-        <NavbarContent justify="end">
-          {user ? (
+          <NavbarContent className="sm:hidden pr-3" justify="center">
+            <NavbarBrand>
+              <AcmeLogo />
+              <p className="font-bold text-inherit">ACME</p>
+            </NavbarBrand>
+          </NavbarContent>
+          <NavbarContent className="hidden sm:flex gap-4" justify="center">
+            <NavbarBrand>
+              <AcmeLogo />
+              <p className="font-bold text-inherit">ACME</p>
+            </NavbarBrand>
+            {menuItems.map((item, index) => (
+              <NavbarItem key={item.label}>
+                <Link
+                  style={{textAlign: 'center', minWidth: 'unset', padding: '0.5rem 1.5rem', borderRadius: '8px', fontWeight: 500, fontSize: '1.1rem', background: 'rgba(255,255,255,0.08)', border: 'none', boxShadow: 'none'}}
+                  color={index === 2 ? "warning" : index === menuItems.length - 1 ? "danger" : "foreground"}
+                  href={item.href}
+                  size="lg"
+                >
+                  {item.label}
+                </Link>
+              </NavbarItem>
+            ))}
+          </NavbarContent>
+          <NavbarContent justify="end">
+            {userData.user ? (
+              <NavbarItem>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); window.location.href = '/perfil'; }}>
+                  <AccountCircleIcon style={{ width: 32, height: 32 }} />
+                  <span style={{ fontWeight: 500 }}>{userData.user.displayName || userData.user.email}</span>
+                </div>
+              </NavbarItem>
+            ) : (
+              <NavbarItem>
+                <IconButton color="primary" onClick={() => setLoginOpen(true)}>
+                  <GoogleIcon style={{ width: 32, height: 32 }} />
+                </IconButton>
+              </NavbarItem>
+            )}
             <NavbarItem>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); window.location.href = '/perfil'; }}>
-                <AccountCircleIcon style={{ width: 32, height: 32 }} />
-                <span style={{ fontWeight: 500 }}>{user.displayName || user.email}</span>
-              </div>
-            </NavbarItem>
-          ) : (
-            <NavbarItem>
-              <IconButton color="primary" onClick={() => setLoginOpen(true)}>
-                <GoogleIcon style={{ width: 32, height: 32 }} />
+              <IconButton color="primary" onClick={() => setCartOpen(true)}>
+                <Badge badgeContent={cartCount} sx={{
+                  '& .MuiBadge-badge': {
+                    background: 'rgba(33,150,243,0.85)',
+                    color: '#fff',
+                    boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)',
+                    border: '1px solid rgba(33,150,243,0.18)',
+                  }
+                }}>
+                  <ShoppingCartIcon />
+                </Badge>
               </IconButton>
             </NavbarItem>
-          )}
-          <NavbarItem>
-            <IconButton color="primary" onClick={() => setCartOpen(true)}>
-              <Badge badgeContent={cartCount} sx={{
-                '& .MuiBadge-badge': {
-                  background: 'rgba(33,150,243,0.85)',
-                  color: '#fff',
-                  boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)',
-                  border: '1px solid rgba(33,150,243,0.18)',
-                }
-              }}>
-                <ShoppingCartIcon />
-              </Badge>
-            </IconButton>
-          </NavbarItem>
-          {/* ...existing code... */}
-        </NavbarContent>
-  <Drawer anchor="right" open={cartOpen} onClose={() => setCartOpen(false)} PaperProps={{ className: 'glass', style: { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(24px) saturate(200%)', borderRadius: 18, border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 8px 32px 0 rgba(0,0,0,0.12)' } }}>
-    <div style={{ width: 300, padding: 16, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
-      <button
-        onClick={() => setCartOpen(false)}
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          background: 'none',
-          border: 'none',
-          fontSize: 22,
-          cursor: 'pointer',
-          color: '#888',
-          zIndex: 2
-        }}
-        aria-label="Cerrar carrito"
-      >
-        ×
-      </button>
-      <h3 style={{ textAlign: 'center' }}>Carrito</h3>
-      {cart.length === 0 ? (
-        <p>El carrito está vacío</p>
-      ) : (
-        <>
-          <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 12 }}>
-            {cart.map((item, idx) => {
-              return (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(240,240,255,0.7)', borderRadius: 10, padding: 8, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.08)' }}>
-                  <img 
-                    src={item.img} 
-                    alt={item.name} 
-                    style={{ 
-                      width: 72, 
-                      height: 72, 
-                      objectFit: 'contain', 
-                      borderRadius: 10, 
-                      background: '#fff', 
-                      boxShadow: '0 2px 8px 0 rgba(0,0,0,0.10)', 
-                      border: 'none', 
-                      padding: 6, 
-                      display: 'block' 
-                    }} 
-                    onError={e => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/1828/1828884.png';
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>{item.name}</div>
-                    <div style={{ fontSize: 13, color: '#555' }}>Talla: <b>{item.selectedSize}</b></div>
-                    <div style={{ fontSize: 13, color: '#555' }}>Cantidad: <b>{item.quantity}</b></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: 8, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 16 }}>
-              <span>Total productos:</span>
-              <span>
-                ${cart.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}
-              </span>
-            </div>
-          </div>
-          <MuiButton
-            variant="contained"
-            color="success"
-            onClick={() => { setCartOpen(false); window.location.href = '/checkout'; }}
-            disabled={!user || !cart.length}
-            fullWidth
-            style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
-          >
-            Ir a checkout
-          </MuiButton>
-        </>
-      )}
-    </div>
-  </Drawer>
-  <NavbarMenu className="glass" style={{position: 'fixed', top: '5.5rem', left: navbarLeft ?? 0, width: navbarWidth ?? '100%', zIndex: 100}}>
-          {menuItems.map((item, index) => (
-            <NavbarMenuItem key={`${item.label}-${index}`} className="glass" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0.5rem 0'}}>
-              <Link
-                style={{textAlign: 'center', minWidth: 'unset', padding: '0.5rem 1.5rem', borderRadius: '8px', fontWeight: 500, fontSize: '1.1rem', background: 'rgba(255,255,255,0.08)', border: 'none', boxShadow: 'none'}}
-                color={index === 2 ? "warning" : index === menuItems.length - 1 ? "danger" : "foreground"}
-                href={item.href}
-                size="lg"
+          </NavbarContent>
+          <Drawer anchor="right" open={cartOpen} onClose={() => setCartOpen(false)} PaperProps={{ className: 'glass', style: { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(24px) saturate(200%)', borderRadius: 18, border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 8px 32px 0 rgba(0,0,0,0.12)' } }}>
+            <div style={{ width: 300, padding: 16, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+              <button
+                onClick={() => setCartOpen(false)}
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 22,
+                  cursor: 'pointer',
+                  color: '#888',
+                  zIndex: 2
+                }}
+                aria-label="Cerrar carrito"
               >
-                {item.label}
-              </Link>
-            </NavbarMenuItem>
-          ))}
-        </NavbarMenu>
-    </Navbar>
-  </div>
+                ×
+              </button>
+              <h3 style={{ textAlign: 'center' }}>Carrito</h3>
+              {cart.length === 0 ? (
+                <p>El carrito está vacío</p>
+              ) : (
+                <>
+                  <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 12 }}>
+                    {cart.map((item, idx) => {
+                      return (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, background: 'rgba(240,240,255,0.7)', borderRadius: 10, padding: 8, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.08)' }}>
+                          <img 
+                            src={item.img} 
+                            alt={item.name} 
+                            style={{ 
+                              width: 72, 
+                              height: 72, 
+                              objectFit: 'contain', 
+                              borderRadius: 10, 
+                              background: '#fff', 
+                              boxShadow: '0 2px 8px 0 rgba(0,0,0,0.10)', 
+                              border: 'none', 
+                              padding: 6, 
+                              display: 'block' 
+                            }} 
+                            onError={e => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/1828/1828884.png';
+                            }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600 }}>{item.name}</div>
+                            <div style={{ fontSize: 13, color: '#555' }}>Talla: <b>{item.selectedSize}</b></div>
+                            <div style={{ fontSize: 13, color: '#555' }}>Cantidad: <b>{item.quantity}</b></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: 8, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 16 }}>
+                      <span>Total productos:</span>
+                      <span>
+                        ${cart.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <MuiButton
+                    variant="contained"
+                    color="success"
+                    onClick={() => { setCartOpen(false); window.location.href = '/checkout'; }}
+                    disabled={!userData.user || !cart.length}
+                    fullWidth
+                    style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
+                  >
+                    Ir a checkout
+                  </MuiButton>
+                </>
+              )}
+            </div>
+          </Drawer>
+          <NavbarMenu className="glass" style={{position: 'fixed', top: '5.5rem', left: navbarLeft ?? 0, width: navbarWidth ?? '100%', zIndex: 100}}>
+            {menuItems.map((item, index) => (
+              <NavbarMenuItem key={`${item.label}-${index}`} className="glass" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0.5rem 0'}}>
+                <Link
+                  style={{textAlign: 'center', minWidth: 'unset', padding: '0.5rem 1.5rem', borderRadius: '8px', fontWeight: 500, fontSize: '1.1rem', background: 'rgba(255,255,255,0.08)', border: 'none', boxShadow: 'none'}}
+                  color={index === 2 ? "warning" : index === menuItems.length - 1 ? "danger" : "foreground"}
+                  href={item.href}
+                  size="lg"
+                >
+                  {item.label}
+                </Link>
+              </NavbarMenuItem>
+            ))}
+          </NavbarMenu>
+        </Navbar>
+      </div>
       {/* Loading para login */}
       {loginOpen && (
         <Modal open={loginOpen} onClose={() => setLoginOpen(false)}>

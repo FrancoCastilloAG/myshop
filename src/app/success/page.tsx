@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/firebaseconfig";
+import { getUserData, UserData } from "@/userUtils";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SuccessPage() {
@@ -56,9 +55,10 @@ function SuccessContent() {
             setTimeout(() => router.replace("/login"), 3500);
         }
 
-        async function validarYGuardarPedido(user: User | null) {
+        async function validarYGuardarPedido() {
             let pagoAprobado = false;
-            let userId = user?.uid || null;
+            const userData: UserData = await getUserData();
+            let userId = userData.uid;
             let resumenPedido = await obtenerResumenPedido();
             console.log('[SUCCESS] userId:', userId);
             console.log('[SUCCESS] resumenPedido:', resumenPedido);
@@ -120,16 +120,7 @@ function SuccessContent() {
             }
         }
 
-        unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (!resolved) {
-                resolved = true;
-                validarYGuardarPedido(user);
-            }
-        });
-
-        return () => {
-            if (unsubscribe) unsubscribe();
-        };
+        validarYGuardarPedido();
         // eslint-disable-next-line
     }, []);
 
