@@ -97,11 +97,17 @@ function SuccessContent() {
                 setStatusMsg("Guardando tu pedido...");
                 try {
                     console.log('[SUCCESS] Enviando a /api/pedidos:', { userId, order: resumenPedido });
-                    const res = await fetch("/api/pedidos", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId, order: resumenPedido })
-                    });
+                                        const res = await fetch("/api/pedidos", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({
+                                                    userId,
+                                                    order: {
+                                                        ...resumenPedido,
+                                                        displayName: userData.user?.displayName || ""
+                                                    }
+                                                })
+                                        });
                     const data = await res.json();
                     console.log('[SUCCESS] Respuesta /api/pedidos:', data);
                     if (data.success) {

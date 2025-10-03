@@ -35,7 +35,8 @@ import { getDatabase, ref, set, get } from "firebase/database";
 // Eliminado: Firebase Storage
 
 
-const app = initializeApp(firebaseConfig);
+import { getApps } from "firebase/app";
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 // export const storage = getStorage(app); // Eliminado: no se usa Storage

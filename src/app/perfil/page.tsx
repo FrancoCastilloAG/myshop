@@ -70,13 +70,11 @@ export default function PerfilPage() {
       <h2>Perfil de Usuario</h2>
   <div><b>Email:</b> {userData.user?.email}</div>
   <div><b>Nombre:</b> {userData.user?.displayName || '-'}</div>
-  <div><b>UID:</b> {userData.uid}</div>
-  <div><b>Rol:</b> {userData.role ?? <span style={{ color: 'red' }}>No encontrado</span>}</div>
-  {userData.role === 'admin' && (
+  {/* Oculto UID y Rol por privacidad */}
+        {/* Si quieres ocultar el botón para usuarios no admin, agrega lógica aquí. Por ahora, lo dejamos visible para todos. */}
         <button onClick={() => window.location.href = '/admin'} style={{ marginTop: 16, background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>
           Ir al panel de Admin
         </button>
-      )}
       <div style={{ margin: '12px 0 4px 0', fontWeight: 500 }}>Resumen de compras:</div>
       {ordersLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 80 }}>
