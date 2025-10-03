@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       createdAt: Date.now(),
     });
 
-    console.log("[WEBHOOK] Pedido guardado con éxito en Firebase:", newOrderRef.key);
+  // Pedido guardado, no exponer datos sensibles
 
     // Responder 200 para que Mercado Pago no reintente
     return NextResponse.json({ success: true, id: newOrderRef.key });
