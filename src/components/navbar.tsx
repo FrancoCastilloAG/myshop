@@ -21,6 +21,7 @@ import {
   Button,
 } from "@heroui/react";
 import { fetchUserRole, pagarConMercadoPago } from "./navbarUtils";
+import { useRouter } from "next/navigation";
 
 export const AcmeLogo = () => {
   return (
@@ -36,6 +37,7 @@ export const AcmeLogo = () => {
 };
 
 export default function navbar() {
+  const router = useRouter();
   const navbarRef = useRef<HTMLDivElement>(null);
   const [navbarWidth, setNavbarWidth] = useState<number>(0);
   const [navbarLeft, setNavbarLeft] = useState<number>(0);
@@ -67,9 +69,7 @@ export default function navbar() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuItems = [
     { label: "Productos", href: "/" },
-    { label: "Profile", href: "#" },
-    { label: "Dashboard", href: "#" },
-    { label: "Activity", href: "#" },
+    { label: "Perfil", href: "/perfil" },
   ];
   // Suma total de productos en el carrito
   const cartCount = cart.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0);
@@ -146,9 +146,9 @@ export default function navbar() {
           <NavbarContent justify="end">
             {userData.user ? (
               <NavbarItem>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); window.location.href = '/perfil'; }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); router.push('/perfil'); }}>
                   <AccountCircleIcon style={{ width: 32, height: 32 }} />
-                  <span style={{ fontWeight: 500 }}>{userData.user.displayName || userData.user.email}</span>
+                  <span style={{ fontWeight: 500 }}>{}</span>
                 </div>
               </NavbarItem>
             ) : (
