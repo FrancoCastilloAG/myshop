@@ -55,7 +55,7 @@ function SuccessContent() {
             setTimeout(() => router.replace("/login"), 3500);
         }
 
-        async function validarYGuardarPedido() {
+        async function validarYGuardarPedido(retries = 0) {
             let pagoAprobado = false;
             const userData: UserData = await getUserData();
             let userId = userData.uid;
@@ -85,6 +85,12 @@ function SuccessContent() {
                 pagoAprobado = true;
             } else {
                 pagoAprobado = true;
+            }
+
+            if (!userId && retries < 5) {
+                setStatusMsg("Esperando sesión de usuario...");
+                setTimeout(() => validarYGuardarPedido(retries + 1), 700);
+                return;
             }
 
             if (userId && resumenPedido && !resumenPedido.savedToDb && pagoAprobado) {
