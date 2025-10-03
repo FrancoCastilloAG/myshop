@@ -6,10 +6,6 @@ function getServiceAccount() {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     // En producción: variable de entorno con el JSON stringificado
     return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  } else {
-    // En desarrollo local: archivo en la raíz del proyecto
-    // Ajusta la ruta si tu archivo está en otro lugar
-    return require('../../../serviceAccountKey.json');
   }
 }
 
