@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+
+function getServiceAccount() {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // En producción: variable de entorno con el JSON stringificado
+    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    // En desarrollo local: archivo en la raíz del proyecto
+    // Ajusta la ruta si tu archivo está en otro lugar
+    return require('../../../serviceAccountKey.json');
+  }
+}
 
 if (!getApps().length) {
   initializeApp({
-    credential: applicationDefault(),
+    credential: cert(getServiceAccount()),
     databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
   });
 }
