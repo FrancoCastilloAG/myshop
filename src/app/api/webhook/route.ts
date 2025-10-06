@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, ref, push, set } from "firebase/database";
+import { sendOrderEmails } from "./emailUtils";
 
 // Config Firebase
 const firebaseConfig = {
@@ -51,12 +52,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Extraer datos
-    const userId = pago.external_reference; // lo mandaste al crear la preferencia
-    const metadata = pago.metadata || {};
-    const items = metadata.items ? JSON.parse(metadata.items) : [];
-    const address = metadata.address ? JSON.parse(metadata.address) : {};
-    const total = metadata.total ? Number(metadata.total) : pago.transaction_amount;
+  // Extraer datos
+  const userId = pago.external_reference; // lo mandaste al crear la preferencia
+  const metadata = pago.metadata || {};
+  const items = metadata.items ? JSON.parse(metadata.items) : [];
+  const address = metadata.address ? JSON.parse(metadata.address) : {};
+  const total = metadata.total ? Number(metadata.total) : pago.transaction_amount;
+  const userEmail = pago.payer?.email || metadata.userEmail || '';
+  const userName = pago.payer?.first_name || '';
     
 
     if (!userId) {
@@ -68,6 +71,7 @@ export async function POST(req: NextRequest) {
     const orderRef = ref(db, `orders/${userId}`);
     const newOrderRef = push(orderRef);
 
+
     await set(newOrderRef, {
       id: newOrderRef.key,
       items,
@@ -77,6 +81,22 @@ export async function POST(req: NextRequest) {
       mp_payment_id: paymentId,
       createdAt: Date.now(),
     });
+
+    // Enviar emails a usuario y admin
+    if (userEmail) {
+      try {
+        await sendOrderEmails({
+          toUser: userEmail,
+          userName,
+          orderId: newOrderRef.key!,
+          items,
+          total,
+          address
+        });
+      } catch (e) {
+        console.error("[WEBHOOK] Error enviando emails:", e);
+      }
+    }
 
   // Pedido guardado, no exponer datos sensibles
 

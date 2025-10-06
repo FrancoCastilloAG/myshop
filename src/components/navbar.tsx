@@ -1,4 +1,5 @@
 "use client"
+import { notifyLoginRequired } from "./notifications";
 import React, { useState, useRef, useEffect } from "react";
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { listenUserData, UserData } from "../userUtils";
@@ -146,20 +147,20 @@ export default function navbar() {
           <NavbarContent justify="end">
             {userData.user ? (
               <NavbarItem>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); router.push('/perfil'); }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { setProfileOpen(false); router.push('/perfil'); }} aria-label="Perfil">
                   <AccountCircleIcon style={{ width: 32, height: 32 }} />
                   <span style={{ fontWeight: 500 }}>{}</span>
                 </div>
               </NavbarItem>
             ) : (
               <NavbarItem>
-                <IconButton color="primary" onClick={() => setLoginOpen(true)}>
+                <IconButton color="primary" onClick={() => setLoginOpen(true)} aria-label="Iniciar sesión con Google">
                   <GoogleIcon style={{ width: 32, height: 32 }} />
                 </IconButton>
               </NavbarItem>
             )}
             <NavbarItem>
-              <IconButton color="primary" onClick={() => setCartOpen(true)}>
+              <IconButton color="primary" onClick={() => setCartOpen(true)} aria-label="Abrir carrito">
                 <Badge badgeContent={cartCount} sx={{
                   '& .MuiBadge-badge': {
                     background: 'rgba(33,150,243,0.85)',
@@ -177,6 +178,7 @@ export default function navbar() {
             <div style={{ width: 300, padding: 16, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
               <button
                 onClick={() => setCartOpen(false)}
+                aria-label="Cerrar carrito"
                 style={{
                   position: 'absolute',
                   top: 10,
@@ -188,7 +190,6 @@ export default function navbar() {
                   color: '#888',
                   zIndex: 2
                 }}
-                aria-label="Cerrar carrito"
               >
                 ×
               </button>
@@ -240,8 +241,15 @@ export default function navbar() {
                   <MuiButton
                     variant="contained"
                     color="success"
-                    onClick={() => { setCartOpen(false); window.location.href = '/checkout'; }}
-                    disabled={!userData.user || !cart.length}
+                    onClick={() => {
+                      if (!userData.user) {
+                        notifyLoginRequired();
+                        return;
+                      }
+                      setCartOpen(false);
+                      window.location.href = '/checkout';
+                    }}
+                    disabled={!cart.length}
                     fullWidth
                     style={{ marginTop: 8, backdropFilter: 'blur(8px)', background: 'rgba(33,150,243,0.25)', color: '#fff', borderRadius: 12, border: '1px solid rgba(33,150,243,0.18)', boxShadow: '0 2px 8px 0 rgba(33,150,243,0.12)' }}
                   >
