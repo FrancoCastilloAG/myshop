@@ -1,3 +1,14 @@
+export async function POST(req: NextRequest) {
+  try {
+    const pedido = await req.json();
+    console.log('[EMAIL API] Pedido recibido:', JSON.stringify(pedido, null, 2));
+    await sendOrderEmails(pedido);
+    return NextResponse.json({ success: true });
+  } catch (e: any) {
+    console.error('[EMAIL API] Error enviando correo:', e);
+    return NextResponse.json({ success: false, error: e.message });
+  }
+}
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from 'resend';
 
@@ -26,39 +37,6 @@ async function sendOrderEmails({
   createdAt?: number,
   mp_payment_id?: string
 }) {
-  // Email para admin (solo texto)
-  if (adminEmail) {
-    await resend.emails.send({
-      from: `MyShop <${adminEmail}>`,
-      to: [adminEmail],
-      subject: `Nuevo pedido pagado #${orderId}`,
-      text:
-        `Nuevo pedido pagado:\n` +
-        `Usuario: ${toUser}${userName ? ' (' + userName + ')' : ''}\n` +
-        `Pedido N°: ${orderId}\n` +
-        `Fecha: ${fecha}\n` +
-        `Estado: ${status}\n` +
-        (mp_payment_id ? `ID Pago MP: ${mp_payment_id}\n` : '') +
-        `------------------------------\n` +
-        `Productos:\n${orderList}\n` +
-        `------------------------------\n` +
-        `Total: $${total}\n` +
-        `Enviado a: ${addressStr}\n`
-    });
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const pedido = await req.json();
-    console.log('[EMAIL API] Pedido recibido:', JSON.stringify(pedido, null, 2));
-    await sendOrderEmails(pedido);
-    return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error('[EMAIL API] Error enviando correo:', e);
-    return NextResponse.json({ success: false, error: e.message });
-  }
-}
   const orderList = items.map(
     (item) => `- ${item.name || item.title} x${item.quantity} (${item.selectedSize ? 'Talla: ' + item.selectedSize + ', ' : ''}$${item.price || item.unit_price})\n  ${item.img ? item.img : ''}`
   ).join('\n');
@@ -81,6 +59,8 @@ export async function POST(req: NextRequest) {
   // LOG: Resumen de datos antes de enviar
   console.log('[EMAIL API] Enviando correo a usuario:', toUser);
   console.log('[EMAIL API] Enviando correo a admin:', adminEmail);
+
+  // Email para usuario (HTML y texto)
   await resend.emails.send({
     from: `MyShop <${adminEmail}>`,
     to: [toUser],
@@ -119,6 +99,8 @@ export async function POST(req: NextRequest) {
         <div style="color:#888;font-size:13px;">Si tienes dudas, responde este correo.</div>
       </div>`
   });
+
+  // Email para admin (solo texto)
   if (adminEmail) {
     await resend.emails.send({
       from: `MyShop <${adminEmail}>`,
@@ -138,3 +120,5 @@ export async function POST(req: NextRequest) {
         `Enviado a: ${addressStr}\n`
     });
   }
+}
+
