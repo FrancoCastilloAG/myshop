@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
     await set(newOrderRef, pedido);
 
     // Enviar emails a usuario y admin a través de la API /api/email
-    if (userEmail) {
+  console.log("[WEBHOOK] userEmail extraído:", userEmail);
+  if (userEmail) {
       try {
         console.log("[WEBHOOK] Llamando a /api/email con:", {
           toUser: userEmail,
