@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase, ref, push, set } from "firebase/database";
 import { app } from "../../../firebaseconfig";
-
-// Usar la instancia de app ya inicializada
 const db = getDatabase(app);
 
 export async function POST(req: NextRequest) {
@@ -71,7 +69,7 @@ export async function POST(req: NextRequest) {
     // Enviar emails a usuario y admin a través de la API /api/email
     if (userEmail) {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email`, {
+        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
