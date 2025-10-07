@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 const adminEmail = process.env.ADMIN_EMAIL || '';
-const smtpUser = process.env.SMTP_USER || '';
-const smtpPass = process.env.SMTP_PASS || '';
-const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-const smtpPort = Number(process.env.SMTP_PORT) || 465;
-
-const transporter = nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: true,
-  auth: {
-    user: smtpUser,
-    pass: smtpPass,
-  },
-});
+const resendApiKey = process.env.RESEND_API_KEY || '';
+const resend = new Resend(resendApiKey);
 
 async function sendOrderEmails({
   toUser,
@@ -39,6 +26,39 @@ async function sendOrderEmails({
   createdAt?: number,
   mp_payment_id?: string
 }) {
+  // Email para admin (solo texto)
+  if (adminEmail) {
+    await resend.emails.send({
+      from: `MyShop <${adminEmail}>`,
+      to: [adminEmail],
+      subject: `Nuevo pedido pagado #${orderId}`,
+      text:
+        `Nuevo pedido pagado:\n` +
+        `Usuario: ${toUser}${userName ? ' (' + userName + ')' : ''}\n` +
+        `Pedido N°: ${orderId}\n` +
+        `Fecha: ${fecha}\n` +
+        `Estado: ${status}\n` +
+        (mp_payment_id ? `ID Pago MP: ${mp_payment_id}\n` : '') +
+        `------------------------------\n` +
+        `Productos:\n${orderList}\n` +
+        `------------------------------\n` +
+        `Total: $${total}\n` +
+        `Enviado a: ${addressStr}\n`
+    });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const pedido = await req.json();
+    console.log('[EMAIL API] Pedido recibido:', JSON.stringify(pedido, null, 2));
+    await sendOrderEmails(pedido);
+    return NextResponse.json({ success: true });
+  } catch (e: any) {
+    console.error('[EMAIL API] Error enviando correo:', e);
+    return NextResponse.json({ success: false, error: e.message });
+  }
+}
   const orderList = items.map(
     (item) => `- ${item.name || item.title} x${item.quantity} (${item.selectedSize ? 'Talla: ' + item.selectedSize + ', ' : ''}$${item.price || item.unit_price})\n  ${item.img ? item.img : ''}`
   ).join('\n');
@@ -61,12 +81,9 @@ async function sendOrderEmails({
   // LOG: Resumen de datos antes de enviar
   console.log('[EMAIL API] Enviando correo a usuario:', toUser);
   console.log('[EMAIL API] Enviando correo a admin:', adminEmail);
-  console.log('[EMAIL API] Pedido:', { orderId, total, status, createdAt, mp_payment_id, address });
-
-  // Email tipo boleta para usuario (HTML y texto)
-  await transporter.sendMail({
-    from: smtpUser,
-    to: toUser,
+  await resend.emails.send({
+    from: `MyShop <${adminEmail}>`,
+    to: [toUser],
     subject: `Boleta de compra - Pedido #${orderId}`,
     text:
       `¡Gracias por tu compra${userName ? ', ' + userName : ''}!\n\n` +
@@ -102,12 +119,10 @@ async function sendOrderEmails({
         <div style="color:#888;font-size:13px;">Si tienes dudas, responde este correo.</div>
       </div>`
   });
-
-  // Email para admin (solo texto, pero puedes agregar html si lo deseas)
   if (adminEmail) {
-    await transporter.sendMail({
-      from: smtpUser,
-      to: adminEmail,
+    await resend.emails.send({
+      from: `MyShop <${adminEmail}>`,
+      to: [adminEmail],
       subject: `Nuevo pedido pagado #${orderId}`,
       text:
         `Nuevo pedido pagado:\n` +
@@ -123,16 +138,3 @@ async function sendOrderEmails({
         `Enviado a: ${addressStr}\n`
     });
   }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const pedido = await req.json();
-    console.log('[EMAIL API] Pedido recibido:', JSON.stringify(pedido, null, 2));
-    await sendOrderEmails(pedido);
-    return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error('[EMAIL API] Error enviando correo:', e);
-    return NextResponse.json({ success: false, error: e.message });
-  }
-}
