@@ -69,7 +69,18 @@ export async function POST(req: NextRequest) {
     // Enviar emails a usuario y admin a través de la API /api/email
     if (userEmail) {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/email`, {
+        console.log("[WEBHOOK] Llamando a /api/email con:", {
+          toUser: userEmail,
+          userName,
+          orderId: pedido.id!,
+          items: pedido.items,
+          total: pedido.total,
+          address: pedido.address,
+          status: pedido.status,
+          createdAt: pedido.createdAt,
+          mp_payment_id: pedido.mp_payment_id
+        });
+        const emailRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -84,6 +95,9 @@ export async function POST(req: NextRequest) {
             mp_payment_id: pedido.mp_payment_id
           })
         });
+        console.log("[WEBHOOK] /api/email status:", emailRes.status);
+        const emailJson = await emailRes.json();
+        console.log("[WEBHOOK] Respuesta de /api/email:", emailJson);
       } catch (e) {
         console.error("[WEBHOOK] Error enviando emails:", e);
       }

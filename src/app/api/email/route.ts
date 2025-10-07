@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from 'resend';
 
-const adminEmail = process.env.ADMIN_EMAIL || '';
-const resendApiKey = process.env.RESEND_API_KEY || '';
+const adminEmail = process.env.ADMIN_EMAIL;
+const resendApiKey = process.env.RESEND_API_KEY;
 const resend = new Resend(resendApiKey);
 
 async function sendOrderEmails({
