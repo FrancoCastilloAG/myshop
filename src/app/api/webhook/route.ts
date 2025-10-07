@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
     }
 
   // Pedido guardado, no exponer datos sensibles
+    console.log("Pedido recibido para email:", JSON.stringify(pedido, null, 2));
 
     // Responder 200 para que Mercado Pago no reintente
     return NextResponse.json({ success: true, id: newOrderRef.key });
