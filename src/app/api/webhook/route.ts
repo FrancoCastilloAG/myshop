@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase, ref, push, set } from "firebase/database";
-import { sendOrderEmails } from "./emailUtils";
 import { app } from "../../../firebaseconfig";
 
 // Usar la instancia de app ya inicializada
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
     const newOrderRef = push(orderRef);
 
 
-    await set(newOrderRef, {
+    const pedido = {
       id: newOrderRef.key,
       items,
       address,
@@ -66,18 +65,26 @@ export async function POST(req: NextRequest) {
       status: "pagado",
       mp_payment_id: paymentId,
       createdAt: Date.now(),
-    });
+    };
+    await set(newOrderRef, pedido);
 
-    // Enviar emails a usuario y admin
+    // Enviar emails a usuario y admin a través de la API /api/email
     if (userEmail) {
       try {
-        await sendOrderEmails({
-          toUser: userEmail,
-          userName,
-          orderId: newOrderRef.key!,
-          items,
-          total,
-          address
+        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toUser: userEmail,
+            userName,
+            orderId: pedido.id!,
+            items: pedido.items,
+            total: pedido.total,
+            address: pedido.address,
+            status: pedido.status,
+            createdAt: pedido.createdAt,
+            mp_payment_id: pedido.mp_payment_id
+          })
         });
       } catch (e) {
         console.error("[WEBHOOK] Error enviando emails:", e);

@@ -7,6 +7,7 @@ import { db } from "../../firebaseconfig";
 import { ref as dbRef, get as dbGet, set as dbSet, update as dbUpdate } from "firebase/database";
 import { CircularProgress } from "@heroui/react";
 import MuiButton from "@mui/material/Button";
+
 import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function PerfilPage() {
@@ -26,6 +27,30 @@ export default function PerfilPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const router = useRouter();
+
+  // Botón para probar el envío de correo
+  const handleTestEmail = async () => {
+    if (!userData.user) return;
+    try {
+      const res = await fetch("/api/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toUser: userData.user.email,
+          userName: userData.user.displayName || '',
+          address: address || { street: 'Calle Falsa', number: '123', city: 'Ciudad', region: 'Región', country: 'País' }
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Correo de prueba enviado (si la configuración SMTP es correcta)');
+      } else {
+        alert('Error enviando correo: ' + (data.error || 'Error desconocido'));
+      }
+    } catch (e) {
+      alert('Error enviando correo: ' + (e as any)?.message);
+    }
+  };
 
   useEffect(() => {
     const unsub = listenUserData((data) => {
@@ -75,6 +100,9 @@ export default function PerfilPage() {
         <button onClick={() => window.location.href = '/admin'} style={{ marginTop: 16, background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>
           Ir al panel de Admin
         </button>
+        <MuiButton variant="outlined" color="primary" style={{ marginTop: 12 }} onClick={handleTestEmail}>
+          Probar envío de correo
+        </MuiButton>
       <div style={{ margin: '12px 0 4px 0', fontWeight: 500 }}>Resumen de compras:</div>
       {ordersLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 80 }}>
