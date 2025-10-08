@@ -8,12 +8,6 @@ export const dynamic = "force-dynamic";
 const db = getDatabase(app);
 
 export async function POST(req: NextRequest) {
-  // Validar clave secreta si la tienes en Mercado Pago
-  const secret = req.headers.get("x-webhook-secret");
-  if (process.env.MP_WEBHOOK_SECRET && secret !== process.env.MP_WEBHOOK_SECRET) {
-    console.error("[WEBHOOK] Clave secreta inválida");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const body = await req.json();
   console.log("[WEBHOOK] body recibido:", body);
