@@ -9,8 +9,10 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
+
 export default function CheckoutPage() {
   const { cart, clearCart, removeFromCart, removeQuantity } = useCart();
+  const { notifyLoginRequired } = require("../../components/notifications");
   const [userData, setUserData] = useState<UserData>({ user: null, uid: null, role: null, address: null });
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddressIdx, setSelectedAddressIdx] = useState(0);
@@ -48,9 +50,16 @@ export default function CheckoutPage() {
   const handlePagarConMercadoPago = async () => {
     setMpLoading(true);
     setMpError("");
+    if (!userData.user) {
+      notifyLoginRequired();
+      setMpLoading(false);
+      return;
+    }
     try {
-      // Formatea los items para MercadoPago
+      // Formatea los items para MercadoPago, incluyendo id y selectedSize
       const mpItems = cart.map(item => ({
+        id: item.id,
+        selectedSize: item.selectedSize,
         title: item.name,
         quantity: item.quantity,
         unit_price: item.price,
@@ -68,14 +77,15 @@ export default function CheckoutPage() {
           total: totalPagar
         }),
       });
-      const data = await res.json();
+      let data;
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        setMpError(`Error en el servidor: ${text}`);
+        return;
+      }
       if (data.init_point) {
-        // Guarda el resumen de la compra en localStorage para mostrarlo en /success
-        localStorage.setItem("lastOrder", JSON.stringify({
-          items: cart,
-          address: addresses[selectedAddressIdx] || userData.address,
-          total: totalPagar
-        }));
         window.location.href = data.init_point;
       } else {
         setMpError(data.error || JSON.stringify(data));
@@ -105,7 +115,7 @@ export default function CheckoutPage() {
       <div style={{ marginBottom: 20 }}>
         <b style={{ fontSize: 17 }}>Productos:</b>
         {cart.map((item, idx) => (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '14px 0', background: 'rgba(240,245,255,0.7)', borderRadius: 14, padding: 10, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.06)' }}>
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '14px 0', background: 'rgba(240,245,255,0.7)', borderRadius: 14, padding: 10, boxShadow: '0 1px 4px 0 rgba(33,150,243,0.06)', flexWrap: 'wrap' }}>
             <img src={item.img} alt={item.name} style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 12, background: '#fff', boxShadow: '0 2px 8px 0 rgba(0,0,0,0.10)', border: 'none', padding: 6 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 16 }}>{item.name}</div>
@@ -124,7 +134,9 @@ export default function CheckoutPage() {
                 </MuiButton>
               </div>
             </div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#1976d2' }}>${item.price.toLocaleString()}</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#1976d2', minWidth: 60, textAlign: 'right', wordBreak: 'break-word', maxWidth: 90, flex: '0 0 auto', overflowWrap: 'break-word' }}>
+              ${item.price.toLocaleString()}
+            </div>
           </div>
         ))}
       </div>
@@ -187,6 +199,8 @@ export default function CheckoutPage() {
       >
         {mpLoading ? <CircularProgress size={24} color="inherit" /> : "Pagar con Mercado Pago"}
       </MuiButton>
+
+      {/* Botón de enviar resumen por correo eliminado. Todo el flujo es backend-only. */}
       <div style={{ marginTop: 18, fontSize: 13, color: '#777', textAlign: 'center' }}>
         Al continuar, aceptas nuestros <a href="#" style={{ color: '#1976d2', textDecoration: 'underline' }}>términos y condiciones</a> y <a href="#" style={{ color: '#1976d2', textDecoration: 'underline' }}>política de privacidad</a>.
       </div>

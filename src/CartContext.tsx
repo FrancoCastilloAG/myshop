@@ -9,6 +9,7 @@ export const CartContext = createContext<CartContextType>({
 import { createContext, useContext, useState, useEffect } from "react";
 
 export interface CartItem {
+  id: string; // id del producto
   name: string;
   sizes: Record<string, number>;
   price: number;

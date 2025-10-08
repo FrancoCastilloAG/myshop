@@ -5,13 +5,15 @@ import { useParams } from "next/navigation";
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { Card, CardBody, Button, Select, SelectItem, Input, CircularProgress } from "@heroui/react";
 import { useCart } from "../../../CartContext";
+import { notifyAddToCart } from "../../../components/notifications";
+import { notifyStockLimit } from "../../../components/notifications";
 import { db } from "../../../firebaseconfig";
 import { ref as dbRef, get as dbGet } from "firebase/database";
 
 
 export default function ProductDetail() {
 	const params = useParams();
-	const { addToCart } = useCart();
+	const { cart, addToCart } = useCart();
 	const [selectedSize, setSelectedSize] = React.useState("");
 	const [quantity, setQuantity] = React.useState(1);
 	const [product, setProduct] = React.useState<any>(null);
@@ -42,12 +44,24 @@ export default function ProductDetail() {
 				validSizes[size] = stock;
 			}
 		});
+		// Validar stock sumando lo que ya hay en el carrito
+		const enCarrito = cart.find(
+			(item) => item.id === (params.id as string) && item.selectedSize === selectedSize
+		);
+		const cantidadEnCarrito = enCarrito ? enCarrito.quantity : 0;
+		const stockDisponible = validSizes[selectedSize] || 0;
+		if (cantidadEnCarrito + quantity > stockDisponible) {
+			notifyStockLimit(stockDisponible);
+			return;
+		}
 		addToCart({
 			...product,
+			id: params.id as string,
 			sizes: validSizes,
 			selectedSize,
 			quantity,
 		});
+		notifyAddToCart();
 	};
 
 	return (

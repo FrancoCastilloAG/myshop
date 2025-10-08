@@ -19,12 +19,16 @@
     "firebase-admin": "^13.5.0",
     "mercadopago": "^2.9.0",
     "next": "^15.5.4",
+    "nodemailer": "^7.0.7",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-hot-toast": "^2.6.0",
+    "resend": "^6.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.2",
     "@types/react": "^19.1.14",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
