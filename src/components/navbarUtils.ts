@@ -25,6 +25,8 @@ export async function pagarConMercadoPago(cart: CartItem[], user: User | null, s
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       items: cart.map(item => ({
+        id: (item as any).id, // Asegúrate que el CartItem tenga id
+        selectedSize: item.selectedSize,
         title: item.name,
         quantity: item.quantity,
         currency_id: 'CLP',

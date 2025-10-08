@@ -4,30 +4,30 @@ import { getDatabase, ref, push, set } from "firebase/database";
 import { app } from "../../../firebaseconfig";
 import { sendOrderEmails } from "../email/route";
 
-export const dynamic = "force-dynamic";
 const db = getDatabase(app);
 
 export async function POST(req: NextRequest) {
-
   const body = await req.json();
-  console.log("[WEBHOOK] body recibido:", body);
-
-  // Mercado Pago envía `data.id` (payment_id)
+  console.log('Webhook recibido:', JSON.stringify(body));
   const paymentId = body?.data?.id;
   if (!paymentId) {
-    return NextResponse.json({ error: "payment_id no encontrado" }, { status: 400 });
-  }
-
-  // Validar pago usando el endpoint centralizado
-  const validateRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/validate-payment?payment_id=${paymentId}`);
-  const validateJson = await validateRes.json();
-  if (validateJson.status !== "approved") {
-    console.log("[WEBHOOK] Pago no aprobado, ignorado.");
+    // Notificación irrelevante (ej: merchant_order), responder 200 para evitar reintentos
     return NextResponse.json({ success: true });
   }
-  const pago = validateJson.pago;
-
-  // Extraer datos
+  const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    headers: {
+      'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!mpRes.ok) {
+    return NextResponse.json({ error: 'Error consultando pago en Mercado Pago' }, { status: 500 });
+  }
+  const pago = await mpRes.json();
+  console.log('Pago consultado en MP:', JSON.stringify(pago));
+  if (pago.status !== "approved") {
+    return NextResponse.json({ success: true });
+  }
   const userId = pago.external_reference;
   const metadata = pago.metadata || {};
   const items = metadata.items ? JSON.parse(metadata.items) : [];
@@ -35,16 +35,12 @@ export async function POST(req: NextRequest) {
   const total = metadata.total ? Number(metadata.total) : pago.transaction_amount;
   const userEmail = pago.payer?.email || metadata.userEmail || '';
   const userName = pago.payer?.first_name || '';
-
+  console.log('Items recibidos:', JSON.stringify(items));
   if (!userId) {
-    console.error("[WEBHOOK] userId no encontrado en external_reference");
     return NextResponse.json({ error: "userId requerido" }, { status: 400 });
   }
-
-  // Guardar pedido en Firebase
   const orderRef = ref(db, `orders/${userId}`);
   const newOrderRef = push(orderRef);
-
   const pedido = {
     id: newOrderRef.key,
     items,
@@ -56,10 +52,34 @@ export async function POST(req: NextRequest) {
   };
   await set(newOrderRef, pedido);
 
-  // Enviar email de resumen
+  // Descontar stock de productos por talla (robusto)
+  const { get, update } = await import('firebase/database');
+  for (const item of items) {
+    console.log('Procesando item:', JSON.stringify(item));
+    if (!item.id || !item.selectedSize || typeof item.quantity !== 'number') {
+      console.log('Item inválido para descuento de stock:', item);
+      continue;
+    }
+    const sizePath = `products/${item.id}/sizes/${item.selectedSize}`;
+    const sizeRef = ref(db, sizePath);
+    try {
+      const snap = await get(sizeRef);
+      if (!snap.exists()) {
+        console.log('No existe la talla en DB:', sizePath);
+        continue;
+      }
+      const currentStock = snap.val();
+      const newStock = Math.max(0, currentStock - item.quantity);
+      console.log(`Stock actual: ${currentStock}, nuevo stock: ${newStock} para ${sizePath}`);
+      await update(ref(db, `products/${item.id}/sizes`), { [item.selectedSize]: newStock });
+      console.log('Stock actualizado correctamente');
+    } catch (err) {
+      console.error('Error actualizando stock:', err);
+    }
+  }
   try {
     await sendOrderEmails({
-      toUser: 'francocas453@gmail.com', // Cambia a userEmail cuando tu dominio esté verificado
+      toUser: userEmail,
       userName,
       orderId: pedido.id!,
       items: pedido.items,
@@ -69,14 +89,6 @@ export async function POST(req: NextRequest) {
       createdAt: pedido.createdAt,
       mp_payment_id: pedido.mp_payment_id
     });
-    console.log("[WEBHOOK] sendOrderEmails ejecutado correctamente");
-  } catch (e) {
-    console.error("[WEBHOOK] Error enviando emails:", e);
-  }
-
-  // Pedido guardado, no exponer datos sensibles
-  console.log("Pedido recibido para email:", JSON.stringify(pedido, null, 2));
-
-  // Responder 200 para que Mercado Pago no reintente
+  } catch (e) {}
   return NextResponse.json({ success: true, id: newOrderRef.key });
 }

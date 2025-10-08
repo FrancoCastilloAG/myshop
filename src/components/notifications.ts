@@ -1,3 +1,5 @@
+export const notifyStockLimit = (stock: number) =>
+  toast.error(`No puedes agregar más de ${stock} unidades de esta talla al carrito.`)
 import toast from 'react-hot-toast'
 
 export const notifyAddToCart = () =>

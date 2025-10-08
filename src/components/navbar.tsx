@@ -119,7 +119,7 @@ export default function navbar() {
     <>
       <div ref={navbarRef}>
         <Navbar isBordered isMenuOpen={isMenuOpen} onMenuOpenChange={setIsMenuOpen} className="glass" style={{marginBottom: '2rem'}}>
-          <NavbarMenuToggle aria-label={isMenuOpen ? "Close menu" : "Open menu"} />
+          <NavbarMenuToggle aria-label={isMenuOpen ? "Close menu" : "Open menu"} className="sm:hidden" />
           <NavbarContent className="sm:hidden pr-3" justify="center">
             <NavbarBrand>
               <AcmeLogo />
@@ -174,7 +174,7 @@ export default function navbar() {
               </IconButton>
             </NavbarItem>
           </NavbarContent>
-          <Drawer anchor="right" open={cartOpen} onClose={() => setCartOpen(false)} PaperProps={{ className: 'glass', style: { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(24px) saturate(200%)', borderRadius: 18, border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 8px 32px 0 rgba(0,0,0,0.12)' } }}>
+          <Drawer anchor="right" open={cartOpen} onClose={() => setCartOpen(false)} PaperProps={{ className: 'glass', style: { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(24px) saturate(200%)', borderRadius: 18, border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 8px 32px 0 rgba(0,0,0,0.12)', paddingTop: 64 } }}>
             <div style={{ width: 300, padding: 16, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
               <button
                 onClick={() => setCartOpen(false)}

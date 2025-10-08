@@ -2,11 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    // Desestructurar los datos del body
+
+    // Esperado: cada item debe tener id, selectedSize, quantity, title, unit_price
+    // Ejemplo:
+    // {
+    //   id: "-OaLIhoHBrFJj1sgBdv7",
+    //   selectedSize: "M",
+    //   quantity: 2,
+    //   title: "Polera Ralph Lauren",
+    //   unit_price: 20000
+    // }
+
     const { items, userEmail, shipping, address, userId } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: 'userId es requerido' }, { status: 400 });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'items es requerido y debe ser un array' }, { status: 400 });
+    }
+    // Validar que cada item tenga id y selectedSize
+    for (const item of items) {
+      if (!item.id || !item.selectedSize) {
+        return NextResponse.json({
+          error: 'Cada item debe tener id y selectedSize',
+          item
+        }, { status: 400 });
+      }
     }
 
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -33,6 +55,7 @@ export async function POST(req: NextRequest) {
           pending: `${BASE_URL}/pending`,
         },
         auto_return: 'approved',
+        notification_url: `${BASE_URL}/api/webhook`,
         metadata: {
           userId, // 👈 lo guardamos también como respaldo
           items: JSON.stringify(items),
