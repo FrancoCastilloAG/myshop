@@ -16,7 +16,7 @@ const adminEmail = process.env.ADMIN_EMAIL;
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = new Resend(resendApiKey);
 
-async function sendOrderEmails({
+export async function sendOrderEmails({
   toUser,
   userName,
   orderId,

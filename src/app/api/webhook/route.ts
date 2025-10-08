@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { sendOrderEmails } from "../email/route";
 import { getDatabase, ref, push, set } from "firebase/database";
 import { app } from "../../../firebaseconfig";
 const db = getDatabase(app);
@@ -68,8 +69,7 @@ export async function POST(req: NextRequest) {
 
   // Enviar emails a usuario y admin a través de la API /api/email
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    console.log("[WEBHOOK] Llamando a /api/email con:", {
+    console.log("[WEBHOOK] Llamando a sendOrderEmails con:", {
       toUser: 'francocas453@gmail.com',
       userName,
       orderId: pedido.id!,
@@ -80,24 +80,18 @@ export async function POST(req: NextRequest) {
       createdAt: pedido.createdAt,
       mp_payment_id: pedido.mp_payment_id
     });
-    const emailRes = await fetch(`${baseUrl}/api/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        toUser: 'francocas453@gmail.com',
-        userName,
-        orderId: pedido.id!,
-        items: pedido.items,
-        total: pedido.total,
-        address: pedido.address,
-        status: pedido.status,
-        createdAt: pedido.createdAt,
-        mp_payment_id: pedido.mp_payment_id
-      })
+    await sendOrderEmails({
+      toUser: 'francocas453@gmail.com',
+      userName,
+      orderId: pedido.id!,
+      items: pedido.items,
+      total: pedido.total,
+      address: pedido.address,
+      status: pedido.status,
+      createdAt: pedido.createdAt,
+      mp_payment_id: pedido.mp_payment_id
     });
-    console.log("[WEBHOOK] /api/email status:", emailRes.status);
-    const emailJson = await emailRes.json();
-    console.log("[WEBHOOK] Respuesta de /api/email:", emailJson);
+    console.log("[WEBHOOK] sendOrderEmails ejecutado correctamente");
   } catch (e) {
     console.error("[WEBHOOK] Error enviando emails:", e);
   }
