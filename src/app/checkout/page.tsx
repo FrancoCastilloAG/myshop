@@ -9,7 +9,51 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
+
 export default function CheckoutPage() {
+  const [resumenLoading, setResumenLoading] = useState(false);
+  const [resumenMsg, setResumenMsg] = useState("");
+
+  // Enviar resumen por correo
+  const handleEnviarResumen = async () => {
+    setResumenLoading(true);
+    setResumenMsg("");
+    try {
+      const selectedAddress = addresses[selectedAddressIdx] || userData.address;
+      const totalProductos = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      let shippingEstimate = 0;
+      if (selectedAddress && selectedAddress.city) {
+        shippingEstimate = selectedAddress.city.toLowerCase().includes('santiago') ? 3000 : 5000;
+      }
+      const totalPagar = totalProductos + shippingEstimate;
+      const pedido = {
+        toUser: 'francocas453@gmail.com',
+        userName: userData.user?.displayName || '',
+        orderId: 'TEST-' + Math.floor(Math.random()*100000),
+        items: cart,
+        total: totalPagar,
+        address: selectedAddress,
+        status: 'pagado',
+        createdAt: Date.now(),
+        mp_payment_id: 'TEST'
+      };
+      const res = await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pedido)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResumenMsg('¡Correo de resumen enviado!');
+      } else {
+        setResumenMsg('Error al enviar el correo.');
+      }
+    } catch (e) {
+      setResumenMsg('Error inesperado al enviar el correo.');
+    } finally {
+      setResumenLoading(false);
+    }
+  };
   const { cart, clearCart, removeFromCart, removeQuantity } = useCart();
   const [userData, setUserData] = useState<UserData>({ user: null, uid: null, role: null, address: null });
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -187,6 +231,32 @@ export default function CheckoutPage() {
       >
         {mpLoading ? <CircularProgress size={24} color="inherit" /> : "Pagar con Mercado Pago"}
       </MuiButton>
+
+       <MuiButton
+         variant="contained"
+         color="secondary"
+         size="large"
+         onClick={handleEnviarResumen}
+         disabled={resumenLoading || !isAddressComplete(selectedAddress)}
+         style={{
+           width: '100%',
+           padding: 16,
+           fontSize: 18,
+           borderRadius: 14,
+           boxShadow: '0 4px 24px 0 rgba(33,150,243,0.13)',
+           fontWeight: 700,
+           letterSpacing: 0.5,
+           background: 'rgba(197,33,243,0.13)',
+           color: '#7b1fa2',
+           border: '1.5px solid rgba(197,33,243,0.13)',
+           backdropFilter: 'blur(10px) saturate(180%)',
+           transition: 'background 0.2s, color 0.2s',
+           marginTop: 12
+         }}
+       >
+         {resumenLoading ? <CircularProgress size={24} color="inherit" /> : "Enviar resumen por correo"}
+       </MuiButton>
+       {resumenMsg && <div style={{ color: resumenMsg.startsWith('¡') ? '#388e3c' : '#e53935', marginTop: 10, textAlign: 'center', fontWeight: 500 }}>{resumenMsg}</div>}
       <div style={{ marginTop: 18, fontSize: 13, color: '#777', textAlign: 'center' }}>
         Al continuar, aceptas nuestros <a href="#" style={{ color: '#1976d2', textDecoration: 'underline' }}>términos y condiciones</a> y <a href="#" style={{ color: '#1976d2', textDecoration: 'underline' }}>política de privacidad</a>.
       </div>
