@@ -4,7 +4,6 @@ import { app } from "../../../firebaseconfig";
 const db = getDatabase(app);
 
 export async function POST(req: NextRequest) {
-  try {
     const body = await req.json();
     console.log("[WEBHOOK] body recibido:", body);
 
@@ -67,11 +66,24 @@ export async function POST(req: NextRequest) {
     await set(newOrderRef, pedido);
 
     // Enviar emails a usuario y admin a través de la API /api/email
-  console.log("[WEBHOOK] userEmail extraído:", userEmail);
-  if (userEmail) {
-      try {
-        console.log("[WEBHOOK] Llamando a /api/email con:", {
-          toUser: userEmail,
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      console.log("[WEBHOOK] Llamando a /api/email con:", {
+        toUser: 'francocas453@gmail.com',
+        userName,
+        orderId: pedido.id!,
+        items: pedido.items,
+        total: pedido.total,
+        address: pedido.address,
+        status: pedido.status,
+        createdAt: pedido.createdAt,
+        mp_payment_id: pedido.mp_payment_id
+      });
+      const emailRes = await fetch(`${baseUrl}/api/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toUser: 'francocas453@gmail.com',
           userName,
           orderId: pedido.id!,
           items: pedido.items,
@@ -80,37 +92,18 @@ export async function POST(req: NextRequest) {
           status: pedido.status,
           createdAt: pedido.createdAt,
           mp_payment_id: pedido.mp_payment_id
-        });
-        const emailRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toUser: userEmail,
-            userName,
-            orderId: pedido.id!,
-            items: pedido.items,
-            total: pedido.total,
-            address: pedido.address,
-            status: pedido.status,
-            createdAt: pedido.createdAt,
-            mp_payment_id: pedido.mp_payment_id
-          })
-        });
-        console.log("[WEBHOOK] /api/email status:", emailRes.status);
-        const emailJson = await emailRes.json();
-        console.log("[WEBHOOK] Respuesta de /api/email:", emailJson);
-      } catch (e) {
-        console.error("[WEBHOOK] Error enviando emails:", e);
-      }
+        })
+      });
+      console.log("[WEBHOOK] /api/email status:", emailRes.status);
+      const emailJson = await emailRes.json();
+      console.log("[WEBHOOK] Respuesta de /api/email:", emailJson);
+    } catch (e) {
+      console.error("[WEBHOOK] Error enviando emails:", e);
     }
 
-  // Pedido guardado, no exponer datos sensibles
+    // Pedido guardado, no exponer datos sensibles
     console.log("Pedido recibido para email:", JSON.stringify(pedido, null, 2));
 
     // Responder 200 para que Mercado Pago no reintente
-    return NextResponse.json({ success: true, id: newOrderRef.key });
-  } catch (err) {
-    console.error("[WEBHOOK] Error general:", err);
-    return NextResponse.json({ error: "Error en webhook", details: err }, { status: 500 });
-  }
+  return NextResponse.json({ success: true, id: newOrderRef.key });
 }

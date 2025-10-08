@@ -37,6 +37,9 @@ async function sendOrderEmails({
   createdAt?: number,
   mp_payment_id?: string
 }) {
+  console.log('[EMAIL API] Ejecutando sendOrderEmails con:', {
+    toUser, userName, orderId, items, total, address, status, createdAt, mp_payment_id
+  });
   const orderList = items.map(
     (item) => `- ${item.name || item.title} x${item.quantity} (${item.selectedSize ? 'Talla: ' + item.selectedSize + ', ' : ''}$${item.price || item.unit_price})\n  ${item.img ? item.img : ''}`
   ).join('\n');
@@ -61,64 +64,74 @@ async function sendOrderEmails({
   console.log('[EMAIL API] Enviando correo a admin:', adminEmail);
 
   // Email para usuario (HTML y texto)
-  await resend.emails.send({
-    from: `MyShop <${adminEmail}>`,
-    to: [toUser],
-    subject: `Boleta de compra - Pedido #${orderId}`,
-    text:
-      `¡Gracias por tu compra${userName ? ', ' + userName : ''}!\n\n` +
-      `Tu pedido fue recibido y está en proceso.\n\n` +
-      `------------------------------\n` +
-      `Pedido N°: ${orderId}\n` +
-      `Fecha: ${fecha}\n` +
-      `Estado: ${status}\n` +
-      (mp_payment_id ? `ID Pago MP: ${mp_payment_id}\n` : '') +
-      `------------------------------\n` +
-      `Productos:\n${orderList}\n` +
-      `------------------------------\n` +
-      `Total: $${total}\n` +
-      `Enviado a: ${addressStr}\n` +
-      `------------------------------\n` +
-      `Si tienes dudas, responde este correo.\n`,
-    html:
-      `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-        <h2 style="color:#1976d2;">¡Gracias por tu compra${userName ? ', ' + userName : ''}!</h2>
-        <p>Tu pedido fue recibido y está en proceso.</p>
-        <hr />
-        <div><b>Pedido N°:</b> ${orderId}</div>
-        <div><b>Fecha:</b> ${fecha}</div>
-        <div><b>Estado:</b> ${status}</div>
-        ${mp_payment_id ? `<div><b>ID Pago MP:</b> ${mp_payment_id}</div>` : ''}
-        <hr />
-        <div><b>Productos:</b></div>
-        ${orderListHtml}
-        <hr />
-        <div><b>Total:</b> $${total}</div>
-        <div><b>Enviado a:</b> ${addressStr}</div>
-        <hr />
-        <div style="color:#888;font-size:13px;">Si tienes dudas, responde este correo.</div>
-      </div>`
-  });
+  try {
+    const result = await resend.emails.send({
+      from: `MyShop <onboarding@resend.dev>`,
+      to: ['francocas453@gmail.com'],
+        subject: `Boleta de compra - Pedido #${orderId}`,
+        text:
+          `¡Gracias por tu compra${userName ? ', ' + userName : ''}!\n\n` +
+          `Tu pedido fue recibido y está en proceso.\n\n` +
+          `------------------------------\n` +
+          `Pedido N°: ${orderId}\n` +
+          `Fecha: ${fecha}\n` +
+          `Estado: ${status}\n` +
+          (mp_payment_id ? `ID Pago MP: ${mp_payment_id}\n` : '') +
+          `------------------------------\n` +
+          `Productos:\n${orderList}\n` +
+          `------------------------------\n` +
+          `Total: $${total}\n` +
+          `Enviado a: ${addressStr}\n` +
+          `------------------------------\n` +
+          `Si tienes dudas, responde este correo.\n`,
+        html:
+          `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+            <h2 style="color:#1976d2;">¡Gracias por tu compra${userName ? ', ' + userName : ''}!</h2>
+            <p>Tu pedido fue recibido y está en proceso.</p>
+            <hr />
+            <div><b>Pedido N°:</b> ${orderId}</div>
+            <div><b>Fecha:</b> ${fecha}</div>
+            <div><b>Estado:</b> ${status}</div>
+            ${mp_payment_id ? `<div><b>ID Pago MP:</b> ${mp_payment_id}</div>` : ''}
+            <hr />
+            <div><b>Productos:</b></div>
+            ${orderListHtml}
+            <hr />
+            <div><b>Total:</b> $${total}</div>
+            <div><b>Enviado a:</b> ${addressStr}</div>
+            <hr />
+            <div style="color:#888;font-size:13px;">Si tienes dudas, responde este correo.</div>
+          </div>`
+      });
+    console.log('[EMAIL API] Respuesta de resend.emails.send (usuario):', result);
+  } catch (err) {
+    console.error('[EMAIL API] Error al enviar correo a usuario:', err);
+  }
 
   // Email para admin (solo texto)
   if (adminEmail) {
-    await resend.emails.send({
-      from: `MyShop <${adminEmail}>`,
-      to: [adminEmail],
-      subject: `Nuevo pedido pagado #${orderId}`,
-      text:
-        `Nuevo pedido pagado:\n` +
-        `Usuario: ${toUser}${userName ? ' (' + userName + ')' : ''}\n` +
-        `Pedido N°: ${orderId}\n` +
-        `Fecha: ${fecha}\n` +
-        `Estado: ${status}\n` +
-        (mp_payment_id ? `ID Pago MP: ${mp_payment_id}\n` : '') +
-        `------------------------------\n` +
-        `Productos:\n${orderList}\n` +
-        `------------------------------\n` +
-        `Total: $${total}\n` +
-        `Enviado a: ${addressStr}\n`
-    });
+    try {
+      const result = await resend.emails.send({
+        from: `MyShop <onboarding@resend.dev>`,
+        to: ['francocas453@gmail.com'],
+        subject: `Nuevo pedido pagado #${orderId}`,
+        text:
+          `Nuevo pedido pagado:\n` +
+          `Usuario: ${toUser}${userName ? ' (' + userName + ')' : ''}\n` +
+          `Pedido N°: ${orderId}\n` +
+          `Fecha: ${fecha}\n` +
+          `Estado: ${status}\n` +
+          (mp_payment_id ? `ID Pago MP: ${mp_payment_id}\n` : '') +
+          `------------------------------\n` +
+          `Productos:\n${orderList}\n` +
+          `------------------------------\n` +
+          `Total: $${total}\n` +
+          `Enviado a: ${addressStr}\n`
+      });
+      console.log('[EMAIL API] Respuesta de resend.emails.send (admin):', result);
+    } catch (err) {
+      console.error('[EMAIL API] Error al enviar correo a admin:', err);
+    }
   }
 }
 
