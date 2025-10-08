@@ -1,11 +1,20 @@
-export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
-import { sendOrderEmails } from "../email/route";
 import { getDatabase, ref, push, set } from "firebase/database";
 import { app } from "../../../firebaseconfig";
+import { sendOrderEmails } from "../email/route";
+
+export const dynamic = "force-dynamic";
 const db = getDatabase(app);
 
 export async function POST(req: NextRequest) {
+  // Validar clave secreta si la tienes en Mercado Pago
+  const secret = req.headers.get("x-webhook-secret");
+  if (process.env.MP_WEBHOOK_SECRET && secret !== process.env.MP_WEBHOOK_SECRET) {
+    console.error("[WEBHOOK] Clave secreta inválida");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json();
   console.log("[WEBHOOK] body recibido:", body);
 
@@ -15,36 +24,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "payment_id no encontrado" }, { status: 400 });
   }
 
-  // Consultar pago en Mercado Pago
-  const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-    headers: {
-      Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-    },
-  });
-
-  if (!res.ok) {
-    console.error("[WEBHOOK] Error consultando pago:", res.status);
-    return NextResponse.json({ error: "No se pudo consultar pago" }, { status: 500 });
-  }
-
-  const pago = await res.json();
-  console.log("[WEBHOOK] Pago recibido:", pago);
-
-  // Validar estado
-  if (pago.status !== "approved") {
+  // Validar pago usando el endpoint centralizado
+  const validateRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/validate-payment?payment_id=${paymentId}`);
+  const validateJson = await validateRes.json();
+  if (validateJson.status !== "approved") {
     console.log("[WEBHOOK] Pago no aprobado, ignorado.");
     return NextResponse.json({ success: true });
   }
+  const pago = validateJson.pago;
 
   // Extraer datos
-  const userId = pago.external_reference; // lo mandaste al crear la preferencia
+  const userId = pago.external_reference;
   const metadata = pago.metadata || {};
   const items = metadata.items ? JSON.parse(metadata.items) : [];
   const address = metadata.address ? JSON.parse(metadata.address) : {};
   const total = metadata.total ? Number(metadata.total) : pago.transaction_amount;
   const userEmail = pago.payer?.email || metadata.userEmail || '';
   const userName = pago.payer?.first_name || '';
-
 
   if (!userId) {
     console.error("[WEBHOOK] userId no encontrado en external_reference");
@@ -54,7 +50,6 @@ export async function POST(req: NextRequest) {
   // Guardar pedido en Firebase
   const orderRef = ref(db, `orders/${userId}`);
   const newOrderRef = push(orderRef);
-
 
   const pedido = {
     id: newOrderRef.key,
@@ -67,21 +62,10 @@ export async function POST(req: NextRequest) {
   };
   await set(newOrderRef, pedido);
 
-  // Enviar emails a usuario y admin a través de la API /api/email
+  // Enviar email de resumen
   try {
-    console.log("[WEBHOOK] Llamando a sendOrderEmails con:", {
-      toUser: 'francocas453@gmail.com',
-      userName,
-      orderId: pedido.id!,
-      items: pedido.items,
-      total: pedido.total,
-      address: pedido.address,
-      status: pedido.status,
-      createdAt: pedido.createdAt,
-      mp_payment_id: pedido.mp_payment_id
-    });
     await sendOrderEmails({
-      toUser: 'francocas453@gmail.com',
+      toUser: 'francocas453@gmail.com', // Cambia a userEmail cuando tu dominio esté verificado
       userName,
       orderId: pedido.id!,
       items: pedido.items,
